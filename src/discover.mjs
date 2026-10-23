@@ -35,7 +35,9 @@ export function discover({ cwd, base, head, ignorePrefixes = [] }) {
   const relevant = changed.filter(path => !ignored(path));
   // Shared sources, root manifests/locks and files outside known projects may
   // affect any project. Without a dependency graph, rebuilding all is deliberate.
-  const shared = relevant.some(path => !roots.some(root => contains(root, path)));
+  // A root project must not swallow shared-lock/setup changes that can also
+  // affect nested projects. Outside non-root project ownership, invalidate all.
+  const shared = relevant.some(path => !roots.filter(root => root !== '.').some(root => contains(root, path)));
   const projects = roots.filter(root => shared || relevant.some(path => contains(root, path)))
     .map(root => ({ id: projectId(root), root: projectRoot(root),
       status: !before.has(root) ? 'added' : !after.has(root) ? 'removed' : 'existing',

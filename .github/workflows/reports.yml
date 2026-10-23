@@ -1,0 +1,170 @@
+name: Pulse report capture
+on:
+  workflow_call:
+    inputs:
+      profiles:
+        description: JSON array of explicit profile names (at most eight)
+        type: string
+        default: '["local"]'
+      install_directory:
+        description: Repository-relative lockfile/package root containing all selected projects
+        type: string
+        default: '.'
+      package_manager:
+        description: npm or pnpm (pnpm requires exact packageManager pin in package.json)
+        type: string
+        default: npm
+      pulse_version:
+        description: Exact already-declared installed CLI version
+        type: string
+        default: 1.0.0-beta.10
+      setup_command:
+        description: Optional unprivileged command after lifecycle-disabled install
+        type: string
+        default: ''
+      build_command:
+        description: Optional command emitting one matching completed pulse build --json object
+        type: string
+        default: ''
+    secrets:
+      tooling_read_token:
+        description: Optional read-only report-action token for private cross-repository tooling checkout; discovery job only
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: pulse-report-capture-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  discover:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      has_tasks: ${{ steps.plan.outputs.has_tasks }}
+      tooling_artifact_id: ${{ steps.tooling.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          token: ${{ secrets.tooling_read_token || github.token }}
+          path: report-tooling
+          persist-credentials: false
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: consumer
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+      - id: plan
+        name: Discover Git trees without executing project code
+        run: node "$REPORT_TOOLING/src/workflow.mjs" prepare
+        env:
+          REPORT_TOOLING: ${{ github.workspace }}/report-tooling
+          REPORT_CHECKOUT: ${{ github.workspace }}/consumer
+          REPORT_STAGE: ${{ runner.temp }}/pulse-report-tooling
+          REPORT_INPUTS: ${{ toJSON(inputs) }}
+          REPORT_TOOLING_SHA: ${{ job.workflow_sha }}
+          REPORT_TOOLING_REPOSITORY: ${{ job.workflow_repository }}
+      - id: tooling
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pulse-capture-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pulse-report-tooling/
+          if-no-files-found: error
+          retention-days: 14
+  capture:
+    needs: discover
+    if: needs.discover.outputs.has_tasks == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.discover.outputs.tooling_artifact_id }}
+          path: report-tooling
+          merge-multiple: true
+          digest-mismatch: error
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: consumer
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+      - id: capture
+        name: Install, select, build and capture public Native reports
+        run: node "$REPORT_TOOLING/src/workflow.mjs" capture
+        env:
+          REPORT_TOOLING: ${{ github.workspace }}/report-tooling
+          REPORT_CHECKOUT: ${{ github.workspace }}/consumer
+          REPORT_TASK: ${{ toJSON(matrix) }}
+          REPORT_INPUTS: ${{ toJSON(inputs) }}
+          REPORT_BUNDLE: ${{ runner.temp }}/pulse-report-bundle
+      - id: report
+        if: always() && steps.capture.outputs.artifact_name != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.capture.outputs.artifact_name }}
+          path: |
+            ${{ runner.temp }}/pulse-report-bundle/capture.json
+            ${{ runner.temp }}/pulse-report-bundle/manifest.json
+            ${{ runner.temp }}/pulse-report-bundle/head.json
+            ${{ runner.temp }}/pulse-report-bundle/head.html
+          if-no-files-found: error
+          retention-days: 30
+      - id: binding
+        if: always() && steps.report.outcome == 'success'
+        name: Record GitHub artifact ID and digest outside the archive
+        run: node "$REPORT_TOOLING/src/workflow.mjs" bind
+        env:
+          REPORT_TOOLING: ${{ github.workspace }}/report-tooling
+          REPORT_BUNDLE: ${{ runner.temp }}/pulse-report-bundle
+          REPORT_BINDING_DIRECTORY: ${{ runner.temp }}/pulse-report-binding
+          REPORT_ARTIFACT_ID: ${{ steps.report.outputs.artifact-id }}
+          REPORT_ARCHIVE_DIGEST: ${{ steps.report.outputs.artifact-digest }}
+      - if: always() && steps.binding.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ steps.capture.outputs.artifact_name }}-binding
+          path: ${{ runner.temp }}/pulse-report-binding/binding.json
+          if-no-files-found: error
+          retention-days: 30
+  summary:
+    needs: [discover, capture]
+    if: always() && needs.discover.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          artifact-ids: ${{ needs.discover.outputs.tooling_artifact_id }}
+          path: report-tooling
+          merge-multiple: true
+          digest-mismatch: error
+      - if: needs.discover.outputs.has_tasks == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: pulse-report-*-binding
+          path: capture-bindings
+          digest-mismatch: error
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+      - name: Summarize captured, skipped, failed and missing evidence
+        run: |
+          mkdir -p "$REPORT_CAPTURES"
+          node "$REPORT_TOOLING/src/workflow.mjs" summary
+        env:
+          REPORT_TOOLING: ${{ github.workspace }}/report-tooling
+          REPORT_CAPTURES: ${{ github.workspace }}/capture-bindings

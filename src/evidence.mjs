@@ -8,7 +8,7 @@ const roles = new Map([
 ]);
 const digest = value => requireThat(typeof value === 'string' && /^[a-f0-9]{64}$/.test(value), 'Invalid SHA-256 digest');
 const label = value => requireThat(typeof value === 'string' && value.length > 0 && value.length <= 256 && !/[\x00-\x1f\x7f]/.test(value), 'Invalid identity label');
-const recipeKey = recipe => JSON.stringify(['profile', 'provider', 'target', 'pulseVersion', 'lockSha256'].map(key => recipe[key]));
+const recipeKey = recipe => JSON.stringify(['profile', 'provider', 'target', 'pulseVersion', 'lockSha256', 'executionSha256'].map(key => recipe[key] ?? null));
 
 export function validateManifest(m) {
   requireThat(m?.schemaVersion === 'pulse.report-action.evidence.v1', 'Unsupported evidence manifest');
@@ -20,13 +20,14 @@ export function validateManifest(m) {
   for (const key of ['profile', 'provider', 'pulseVersion']) label(m.recipe?.[key]);
   requireThat(m.recipe.target === 'native', 'Only Native report evidence is supported');
   digest(m.recipe.lockSha256);
+  if (m.recipe.executionSha256 !== undefined) digest(m.recipe.executionSha256);
   safePath(m.workflow?.path); revision(m.workflow.revision);
   positiveInteger(m.run?.id); positiveInteger(m.run.attempt);
   requireThat(m.run.event === 'pull_request', 'PR evidence must identify its pull_request run');
   requireThat(['available', 'unavailable'].includes(m.baseline?.status), 'Invalid baseline status');
   requireThat(m.baseline.revision === m.baselineRevision, 'Baseline identity mismatch');
   if (m.baseline.status === 'unavailable') {
-    requireThat(['new-project', 'build-failed', 'evidence-missing'].includes(m.baseline.reason), 'Missing baseline reason');
+    requireThat(['new-project', 'build-failed', 'evidence-missing', 'not-requested'].includes(m.baseline.reason), 'Missing baseline reason');
   } else requireThat(m.baseline.reason === null, 'Available baseline cannot carry a missing-evidence reason');
   requireThat(Array.isArray(m.files) && m.files.length >= 2 && m.files.length <= roles.size, 'Invalid report inventory');
   const paths = new Set(), found = new Set();
