@@ -15,7 +15,8 @@ jobs:
       package_manager: npm
       install_directory: '.'
       pulse_version: 1.0.0-beta.10
-    # Private cross-repository use may need a report-action contents:read token.
+    # Public report-action needs no extra token. A private tooling mirror may
+    # require sharing configuration and a narrowly scoped contents:read token.
     # It is used only in discovery, never passed to capture/project execution.
     # secrets:
     #   tooling_read_token: ${{ secrets.REPORT_ACTION_READ_TOKEN }}

@@ -15,6 +15,7 @@ jobs:
     with:
       policy_path: .github/pulse-report-publisher.json
       dry_run: false
-    # Same optional narrowly scoped private-tooling read token as the capture caller.
+    # Public report-action needs no extra token. Only a private tooling mirror
+    # may need the same narrowly scoped tooling-read token as the capture caller.
     # secrets:
     #   tooling_read_token: ${{ secrets.REPORT_ACTION_READ_TOKEN }}
