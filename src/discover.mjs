@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { requireThat, revision, safePath, projectRoot, projectId } from './contracts.mjs';
 
 const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-function configurations(cwd, commit) {
+export function configurations(cwd, commit) {
   const roots = new Set();
   for (const row of git(cwd, ['ls-tree', '-r', '-z', '--full-tree', commit]).split('\0').filter(Boolean)) {
     const tab = row.indexOf('\t'), name = row.slice(tab + 1);

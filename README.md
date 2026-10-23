@@ -2,11 +2,11 @@
 
 Reusable GitHub automation for Pulse report and comparison evidence on pull requests.
 
-**Status: Native report capture is implemented; baseline comparison integration and PR publishing remain in progress.** No `@v1` release tag exists. Use a reviewed commit SHA for validation. RA-01 provides a reusable workflow, public installed-CLI capture, per-project artifacts and a run summary; it does not post a PR comment yet.
+**Status: Native capture, exact baseline recovery and opted-in comparisons are implemented for validation.** No `@v1` release tag exists. Use a reviewed commit SHA. PR comments remain RA-03; consumer release still requires the supported Pulse #503 adapter. The temporary beta.10 adapter requires explicit opt-in and produces a validation receipt.
 
 ## Intended consumer experience
 
-Install a small caller workflow, pin the central reusable workflow by reviewed SHA, and select the repository's package setup and Pulse profiles. A lightweight discovery job runs on PR updates; builds run only when relevant changes exist. The planned complete integration supplies downloadable report/comparison HTML and JSON with one maintained PR comment. The current capture workflow supplies head report HTML/JSON, artifact identity and a run summary.
+Install a small caller workflow, pin the central reusable workflow by reviewed SHA, and select the repository's package setup and Pulse profiles. A lightweight discovery job runs on PR updates; builds run only when relevant changes exist. The planned complete integration supplies downloadable report/comparison HTML and JSON with one maintained PR comment. The workflow supplies head report HTML/JSON, artifact identity and a run summary; opted-in validation adds baseline and comparison HTML/JSON.
 
 Initial scope is Native build evidence and offline downloads. GitHub artifacts require sign-in and expire according to retention. Interactive public hosting, deployment, runtime/provider qualification and permanent archival are outside the first release.
 
@@ -14,7 +14,7 @@ The repository is currently private. Cross-repository reuse requires the reposit
 
 ## Native report capture
 
-Copy [examples/pulse-reports.yml](examples/pulse-reports.yml) to the consumer's `.github/workflows/pulse-reports.yml`, replace `REVIEWED_FULL_COMMIT_SHA` with a reviewed report-action SHA, and select the explicit profiles and dependency installation root. Do not filter the trigger to `.pulse/**`: ordinary source and shared dependencies are build inputs too. The workflow supports `pull_request` events on GitHub.com and uses `job.workflow_sha` to obtain its own exact source. GitHub Enterprise Server is not yet supported.
+Copy [examples/pulse-reports.yml](examples/pulse-reports.yml) to the consumer's `.github/workflows/pulse-reports.yml`, replace `REVIEWED_FULL_COMMIT_SHA` with a reviewed report-action SHA, and select the explicit profiles and dependency installation root. Do not filter the trigger to `.pulse/**`: ordinary source and shared dependencies are build inputs too. The workflow supports `pull_request` and approved-branch `push` events on GitHub.com and uses `job.workflow_sha` to obtain its own exact source. GitHub Enterprise Server is not yet supported.
 
 | Input | Default / contract |
 | --- | --- |
@@ -22,6 +22,8 @@ Copy [examples/pulse-reports.yml](examples/pulse-reports.yml) to the consumer's 
 | `install_directory` | `.`; repository-relative package/lock root containing the selected projects |
 | `package_manager` | `npm` or `pnpm`; no floating auto-detection |
 | `pulse_version` | `1.0.0-beta.10`; must match the consumer's installed exact CLI version |
+| `baseline_branch` | Empty selects the repository default branch; only pushes to this branch produce reusable baselines |
+| `compare_internal_beta10` | `false`; explicit validation-only comparison opt-in pending #503 |
 | `setup_command` | Empty; optional non-secret setup after install |
 | `build_command` | Empty uses public `pulse build --json`; override must emit one matching completed build JSON object |
 
@@ -43,7 +45,7 @@ Discovery runs in a separate job without executing project code. It stages only 
 
 The matrix is bounded to 256 project/profile entries, two concurrent captures, 45 minutes per capture job and 12 minutes per subprocess. No affected projects means no install/build. Removed projects produce a skip status without dependency resolution. Missing/failed captures do not turn the workflow green or become reports.
 
-Each successful artifact contains only `head.json`, `head.html`, `manifest.json` and `capture.json`. A failed/skipped capture contains status only, with phase, exit class and a stable diagnostic/failure code rather than raw logs or source values. Head report capsule provenance is unchanged. Baseline status is explicitly `not-requested` (or `new-project`); RA-02 owns baseline selection and compare integration.
+Each successful artifact contains only `head.json`, `head.html`, `manifest.json` and `capture.json`. A failed/skipped capture contains status only, with phase, exit class and a stable diagnostic/failure code rather than raw logs or source values. Head report capsule provenance is unchanged. Without comparison opt-in, PR baseline status is explicitly `not-requested` (or `new-project`). Approved pushes have a separate baseline manifest.
 
 After upload, a separate small binding receipt records the GitHub artifact ID and archive digest; these cannot be embedded in the archive they identify. The summary uses those IDs to link downloadable artifacts and lists missing terminal captures. Artifact names include recipe/run/attempt identity. Captures and bindings are retained for 30 days; the same-run tooling plan for 14 days. No automatic PR comment, live hosting, deployment or runtime qualification is performed.
 
@@ -56,13 +58,29 @@ npm run test:capture
 
 `test:capture` creates isolated temporary consumer Git repositories and installs real beta.10 packages with scripts disabled. It covers root/nested reports, failure/status handling, plan-only rejection, JavaScript skip, no-op selection and removed projects. The self-caller in CI additionally exercises the actual reusable workflow and GitHub artifact handoff; separate external consumers/fork publishing remain RA-04/RA-03 qualification. npm capture is exercised now; the pnpm path remains a separate consumer-matrix obligation in RA-04.
 
+## Exact baseline and comparison validation
+
+Enable `compare_internal_beta10: true` in a reviewed caller to validate comparisons. Include `push` on the approved branch and `actions: read` alongside `contents: read`; the example includes both triggers. Pushes capture all tracked Native project/profile pairs, so an unchanged project can still supply a future exact baseline. A push outside `baseline_branch` is rejected before any project execution.
+
+For each affected PR project the baseline is the exact Git merge-base. Lookup uses the caller's authenticated workflow ID/path, approved branch, same repository/source repository, successful completed push run, full source revision and current attempt. Recipe matching includes project/profile, provider/Native target, exact locked Pulse version, lock digest, package manifest digest, Node/package-manager versions, setup/build hashes, lifecycle policy and central tooling SHA. Pin the same central tooling SHA on producer and consumer to permit reuse. Changing that SHA deliberately causes a rebuild. Multiple eligible archives fail closed; no newest/nearest choice is made.
+
+The API supplies artifact IDs, archive SHA-256 and expiration. Before extraction, verify the archive digest; the Python standard-library extractor accepts exactly four root-level regular files, bounds sizes and rejects traversal, symlinks, duplicate entries and extra files. Then verify the approved-push manifest and report byte hashes. Recheck the run attempt after download. Missing, expired, wrong-recipe or otherwise ineligible evidence triggers a fresh build of the exact merge-base. Corrupt archives, ambiguous matches, API failures and identity violations fail closed rather than masking an integrity problem with a rebuild. Pagination is bounded to 1,000 runs/artifacts per lookup.
+
+Rebuild uses the baseline's own lockfile and CLI version with the same explicit setup/build recipe and pinned orchestration toolchain. It does not install the head's CLI over an older baseline. Provider or toolchain differences remain visible in the original reports and shared-engine compatibility checks. Unresolvable baseline dependencies or a failed/skipped baseline build produce an unavailable baseline with `build-failed`, retain the head report, and fail the comparison job. New projects retain head-only evidence with `new-project`; removed projects retain `project-removed` status. There is no invented zero delta for missing or incompatible evidence.
+
+Comparison bundles contain `head.json/html`, `base.json/html`, `compare.json/html`, the shim receipt, manifest and capture status. The manifest binds all seven evidence files; `baselineSource` records retained run/attempt/artifact ID/archive digest or the exact rebuild revision/recipe. Capture status also records toolchain differences. The separate upload binding identifies the comparison archive itself. Summaries prefer comparison artifacts, and missing comparison jobs remain missing even when a head capture succeeded. Downloads remain private GitHub artifacts retained for 30 days. No PR comment is posted.
+
+Only the lookup step receives an explicit read-only GitHub token; baseline setup/build steps receive no repository secret or write token. The optional cross-repository tooling token remains confined to discovery. Artifact HTML is never evaluated by orchestration. These boundaries do not turn arbitrary project code into sandboxed or trusted evidence.
+
+`npm test` covers metadata/retention/attempt/recipe and adversarial ZIP boundaries. `npm run test:capture` builds real installed baseline/head revisions, exercises exact rebuild and approved-push capture/reuse, and verifies new/failed baselines. A synthetic provider mismatch made with the pinned capsule constructor checks incompatible results retain null deltas; it is not a fresh provider qualification. Hosted self-calls additionally validate the actual GitHub handoff. PR publishing/fork handling and external consumer/pnpm qualification remain RA-03/RA-04.
+
 ## Implementation queue
 
 | Unit | Deliverable | Dependency |
 | --- | --- | --- |
 | [RA-00 / #1](https://github.com/pulse-compute/report-action/issues/1) | Project discovery and evidence identity | Foundation PR |
 | [RA-01 / #2](https://github.com/pulse-compute/report-action/issues/2) | Build/capture reusable workflow and consumer caller | RA-00 |
-| [RA-02 / #3](https://github.com/pulse-compute/report-action/issues/3) | Exact baseline recovery and comparison | RA-01 + Pulse public adapter |
+| [RA-02 / #3](https://github.com/pulse-compute/report-action/issues/3) | Exact baseline recovery and comparison | RA-01 + opted-in shim for validation; public adapter for release |
 | [RA-03 / #4](https://github.com/pulse-compute/report-action/issues/4) | Verified PR comment publisher, including forks | RA-01/02 |
 | [RA-04 / #5](https://github.com/pulse-compute/report-action/issues/5) | Real consumer qualification and first release | RA-01/02/03 |
 
@@ -123,15 +141,15 @@ This prints `pulse.report-action.discovery.v1` JSON. It does not build or contac
 | Baseline | Available, or unavailable with a bounded reason |
 | Files | Explicit role, relative path, byte count and SHA-256 |
 
-Available baselines require all six files: head/base report JSON + HTML and comparison JSON + HTML. An unavailable baseline requires head JSON + HTML and a reason; it cannot claim comparison files. RA-01 uses `not-requested` until baseline integration exists. Failed head builds have separate bounded capture statuses, not fabricated successful evidence manifests. `capture.json` records Node/package-manager versions, lifecycle policy, setup/build hashes and tooling revision bound by the execution fingerprint.
+Available baselines require all six files: head/base report JSON + HTML and comparison JSON + HTML. An unavailable baseline requires head JSON + HTML and a reason; it cannot claim comparison files. Capture-only PR runs use `not-requested`. Validation comparisons add a seventh inventory role for the adapter receipt. Failed head builds have separate bounded capture statuses, not fabricated successful evidence manifests. `capture.json` records Node/package-manager versions, lifecycle policy, setup/build hashes and tooling revision bound by the execution fingerprint.
 
 `sealBundle` hashes only named output files; it rejects symlink traversal and nonregular/oversized files. `verifyBundle` rereads and verifies every listed file. The future uploader must stage only this named inventory plus the manifest, never upload the source checkout or `.pulse/` wholesale.
 
-`validateArtifactBinding` admits metadata for an exact successful PR run, expected project/recipe, attempt, full revisions, workflow identity, artifact ID, archive digest and unexpired retention. Expected identities must come from authenticated GitHub run/PR metadata, not from the bundle itself. The caller must separately establish PR association and latest-head/run ordering, verify the downloaded archive digest before extraction, and validate contained extraction plus file hashes. These integrations are RA-02/03 work, not claims made by a metadata validator.
+`validateArtifactBinding` admits metadata for an exact successful PR run, expected project/recipe, attempt, full revisions, workflow identity, artifact ID, archive digest and unexpired retention. Expected identities must come from authenticated GitHub run/PR metadata, not from the bundle itself. The caller must separately establish PR association and latest-head/run ordering, verify the downloaded archive digest before extraction, and validate contained extraction plus file hashes. RA-02 authenticates head/approved-push downloads and verifies their archives. RA-03 still owns PR association/latest-head checks for privileged publishing.
 
 Artifact names include project ID, stable recipe hash, run ID and attempt. Names support lookup; they do not replace artifact IDs, digest verification or exact identity checks. A source SHA alone does not identify the recipe. A digest binds bytes; it does not establish that untrusted project code produced truthful evidence.
 
-The manifest is an orchestration record. It never rewrites the Pulse capsule's unknown revision, freshness or provenance fields and never promotes a PR bundle into a trusted baseline merely because its hashes match. Baseline reuse requires its own approved-push origin and matching recipe contract in RA-02.
+The manifest is an orchestration record. It never rewrites the Pulse capsule's unknown revision, freshness or provenance fields and never promotes a PR bundle into a trusted baseline merely because its hashes match. Baseline reuse requires its own approved-push origin and matching recipe contract, described below.
 
 ## Execution and publication boundary
 

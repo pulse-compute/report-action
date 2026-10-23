@@ -1,8 +1,11 @@
 name: Pulse reports
 on:
   pull_request:
+  push:
+    branches: [main] # Match baseline_branch or the repository default branch.
 permissions:
   contents: read
+  actions: read
 jobs:
   reports:
     # Replace this placeholder with the full reviewed report-action commit SHA.

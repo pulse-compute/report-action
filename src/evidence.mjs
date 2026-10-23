@@ -4,11 +4,11 @@ import { requireThat, revision, safePath, projectRoot, positiveInteger, sha256, 
 
 const roles = new Map([
   ['head-json', '.json'], ['head-html', '.html'], ['base-json', '.json'],
-  ['base-html', '.html'], ['compare-json', '.json'], ['compare-html', '.html'],
+  ['base-html', '.html'], ['compare-json', '.json'], ['compare-html', '.html'], ['compare-receipt', '.json'],
 ]);
 const digest = value => requireThat(typeof value === 'string' && /^[a-f0-9]{64}$/.test(value), 'Invalid SHA-256 digest');
 const label = value => requireThat(typeof value === 'string' && value.length > 0 && value.length <= 256 && !/[\x00-\x1f\x7f]/.test(value), 'Invalid identity label');
-const recipeKey = recipe => JSON.stringify(['profile', 'provider', 'target', 'pulseVersion', 'lockSha256', 'executionSha256'].map(key => recipe[key] ?? null));
+export const recipeKey = recipe => JSON.stringify(['profile', 'provider', 'target', 'pulseVersion', 'lockSha256', 'executionSha256'].map(key => recipe[key] ?? null));
 
 export function validateManifest(m) {
   requireThat(m?.schemaVersion === 'pulse.report-action.evidence.v1', 'Unsupported evidence manifest');
@@ -45,7 +45,7 @@ export function validateManifest(m) {
   return m;
 }
 
-function regularBytes(root, name) {
+export function regularBytes(root, name) {
   safePath(name);
   const base = realpathSync(root), file = resolve(base, name);
   // Reject symbolic links in every path component, including contained links.
