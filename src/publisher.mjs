@@ -6,6 +6,7 @@ import { requireThat, positiveInteger, revision } from './contracts.mjs';
 import { publisherClient, paginate } from './github.mjs';
 import { publisherPolicy, validateProducer, currentPull, sourceSnapshot } from './publisher-source.mjs';
 import { evidenceReader, reportName, statusName, captureIdentity, admitReport, admitBaseline } from './publisher-artifacts.mjs';
+import { presentationName } from './presentation.mjs';
 
 export const marker = '<!-- pulse-report-action:v1 -->';
 const statePrefix = '<!-- pulse-report-state:';
@@ -19,13 +20,13 @@ export function renderComment({ repository, pr, run, snapshot, rows }) {
   let text = `${marker}\n${statePrefix}${JSON.stringify(state)} -->\n## Pulse reports\n\nHead: \`${pr.head.sha}\`\n\nBaseline (merge-base): \`${snapshot.discovery.baselineRevision}\`\n\n[Capture run ${run.id}, attempt ${run.run_attempt}](https://github.com/${repository}/actions/runs/${run.id}) — ${run.conclusion}.\n\n`;
   if (!rows.length) text += 'No affected Pulse projects; no reports requested.\n';
   else {
-    text += '| Project | Profile | Report | Compare | Evidence state |\n| --- | --- | --- | --- | --- |\n';
+    text += '| Project | Profile | Report | Compare | Evidence | State |\n| --- | --- | --- | --- | --- | --- |\n';
     for (const row of rows) {
       const link = (artifact, label) => artifact ? `[${label}](${artifactURL(repository, run, artifact.id)})` : '—';
-      text += `| ${e(row.root)} | ${e(row.profile)} | ${link(row.report, 'HTML + JSON')} | ${link(row.compare, 'HTML + JSON')} | ${e(row.detail)} |\n`;
+      text += `| ${e(row.root)} | ${e(row.profile)} | ${link(row.reportView, 'report.html')} | ${link(row.compareView, 'compare.html')} | ${link(row.evidence ?? row.compare ?? row.report, 'evidence.zip')} | ${e(row.detail)} |\n`;
     }
   }
-  text += '\nDownloads require GitHub sign-in and expire according to artifact retention. Links download archives; HTML is not hosted. Artifact identity and bytes were checked; project-produced build claims remain untrusted evidence. Comparisons using the beta.10 shim are validation-only.\n';
+  text += '\nHTML links download standalone files; evidence.zip contains the full JSON/HTML, checksums and provenance bundle. Downloads require GitHub sign-in and expire with artifact retention. HTML is not publicly hosted. Artifact identity and bytes were checked; project-produced build claims remain untrusted evidence. Comparisons using the beta.10 shim are validation-only.\n';
   requireThat(Buffer.byteLength(text) <= 60000, 'Comment exceeds GitHub body bound'); return text;
 }
 export function ownedComment(comments, run) {
@@ -96,6 +97,7 @@ export async function publish({ api, repository, event, context, policy: inputPo
   }
   for (const task of tasks) {
     const row = { root: task.root, profile: task.profile, report: null, compare: null, detail: 'missing report evidence' };
+    let reportManifest = null, comparisonManifest = null;
     let expectedRecipe;
     if (task.status !== 'removed') {
       try { expectedRecipe = (await snapshot.recipe(task.profile, policy.providers[task.profile])).recipe; }
@@ -115,7 +117,7 @@ export async function publish({ api, repository, event, context, policy: inputPo
       else {
         captureIdentity(headBundle.capture, task, run, snapshot, [headArtifact.name]);
         const manifest = admitReport({ bundle: headBundle, artifact: headArtifact, run, task, expected, comparison: false, now: now() });
-        if (manifest) { row.report = headArtifact; row.detail = `baseline unavailable: ${manifest.baseline.reason}`; }
+        if (manifest) { reportManifest = manifest; row.report = headArtifact; row.detail = `baseline unavailable: ${manifest.baseline.reason}`; }
         else row.detail = headBundle.capture.status === 'failed' ? `failed: ${headBundle.capture.failureCode}` : `skipped: ${headBundle.capture.reason}`;
       }
     } else if (task.status === 'removed') row.detail = 'project removed; capture status missing';
@@ -131,15 +133,22 @@ export async function publish({ api, repository, event, context, policy: inputPo
           const manifest = admitReport({ bundle, artifact, run, task, expected, comparison: true, now: now() });
           if (!manifest) row.detail = bundle.capture.status === 'failed' ? `comparison failed: ${bundle.capture.failureCode}` : `skipped: ${bundle.capture.reason}`;
           else {
-            if (!row.report) row.report = artifact;
+            row.evidence = artifact;
+            if (!row.report) { row.report = artifact; reportManifest = manifest; }
             if (manifest.baseline.status === 'available') {
               await admitBaseline({ api, read, manifest, bundle, snapshot, task, run, repository,
                 branch: policy.options.baselineBranch || repo.default_branch });
-              row.compare = artifact; row.detail = `validation comparison: ${manifest.compatibility}`;
+              comparisonManifest = manifest; row.compare = artifact; row.detail = `validation comparison: ${manifest.compatibility}`;
             } else row.detail = `baseline unavailable: ${manifest.baseline.reason}`;
           }
         }
       }
+    }
+    for (const [role, manifest, fileRole] of [['report', reportManifest, 'head-html'], ['compare', comparisonManifest, 'compare-html']]) {
+      if (!manifest) continue;
+      const artifact = named([presentationName(prefix, role)]);
+      row[role + 'View'] = artifact ? await read.view(artifact, run, manifest.files.find(f => f.role === fileRole)) : null;
+      if (!row[role + 'View']) row.detail += `; ${role}.html unavailable`;
     }
     rows.push(row);
   }

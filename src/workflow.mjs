@@ -45,7 +45,7 @@ export function prepare({ checkout, tooling, stage, inputs, event, context }) {
   const plan = { schemaVersion: 'pulse.report-action.capture-plan.v1', discovery, tasks, metadata, comparisonRequested: options.compareInternal && !push,
     inputsSha256: sha256(JSON.stringify(options)) };
   mkdirSync(join(stage, 'src'), { recursive: true });
-  for (const name of ['contracts.mjs', 'discover.mjs', 'evidence.mjs', 'capture.mjs', 'workflow.mjs', 'baseline-evidence.mjs', 'baseline.mjs', 'comparison.mjs', 'extract-reports.py']) copyFileSync(join(tooling, 'src', name), join(stage, 'src', name));
+  for (const name of ['contracts.mjs', 'discover.mjs', 'evidence.mjs', 'capture.mjs', 'workflow.mjs', 'baseline-evidence.mjs', 'baseline.mjs', 'comparison.mjs', 'extract-reports.py', 'presentation.mjs']) copyFileSync(join(tooling, 'src', name), join(stage, 'src', name));
   if (options.compareInternal) {
     copyFileSync(join(tooling, 'src/compare-validation.mjs'), join(stage, 'src/compare-validation.mjs'));
     mkdirSync(join(stage, 'validation'));
@@ -58,14 +58,15 @@ export function prepare({ checkout, tooling, stage, inputs, event, context }) {
 export function summarize({ plan, captures }) {
   let text = `## Pulse report evidence\n\nHead: \`${plan.discovery.headRevision}\`\n\nBaseline revision: \`${plan.discovery.baselineRevision}\`.\n\n`;
   if (!plan.tasks.length) return text + 'No affected Pulse projects; no installation or build ran.\n';
-  text += '| Project | Profile | Status | Detail | Artifact |\n| --- | --- | --- | --- | --- |\n';
+  text += '| Project | Profile | Status | Detail | Report | Compare | Evidence |\n| --- | --- | --- | --- | --- | --- | --- |\n';
   for (const task of plan.tasks) {
     const matches = captures.filter(c => c.project === task.root && c.profile === task.profile
       && c.runId === plan.metadata.runId && c.attempt === plan.metadata.attempt && c.headRevision === plan.discovery.headRevision);
     const compared = matches.filter(c => c.comparison === true);
     const c = compared.length === 1 ? compared[0] : !plan.comparisonRequested && matches.length === 1 ? matches[0] : null;
-    const artifact = c?.upload?.artifactId ? `[download](https://github.com/${plan.metadata.repository}/actions/runs/${plan.metadata.runId}/artifacts/${c.upload.artifactId})` : '—';
-    text += `| ${escaped(task.root)} | ${escaped(task.profile)} | ${escaped(c?.status ?? 'missing')} | ${escaped(c?.failureCode ?? c?.compatibility ?? c?.reason ?? (c ? 'Native report; baseline unavailable' : 'No matching terminal capture'))} | ${artifact} |\n`;
+    const link = (id, label) => id ? `[${label}](https://github.com/${plan.metadata.repository}/actions/runs/${plan.metadata.runId}/artifacts/${positiveInteger(id)})` : '—';
+    const head = matches.find(m => m.comparison !== true);
+    text += `| ${escaped(task.root)} | ${escaped(task.profile)} | ${escaped(c?.status ?? 'missing')} | ${escaped(c?.failureCode ?? c?.compatibility ?? c?.reason ?? (c ? 'Native report; baseline unavailable' : 'No matching terminal capture'))} | ${link(head?.upload?.views?.report?.artifactId, 'report.html')} | ${link(c?.upload?.views?.compare?.artifactId, 'compare.html')} | ${link(c?.upload?.artifactId, 'evidence.zip')} |\n`;
   }
   return text + '\nDownload the named artifacts from this run. Artifacts require GitHub sign-in and expire with retention. Comparison artifacts are validation-only when opted in. PR comments require the separately installed publisher. No provider qualification is claimed.\n';
 }
@@ -98,6 +99,10 @@ async function main() {
     requireThat(/^[a-f0-9]{64}$/.test(e.REPORT_ARCHIVE_DIGEST || ''), 'Upload did not return an archive digest');
     const binding = { schemaVersion: 'pulse.report-action.upload-binding.v1', capture: c,
       artifact: { id: artifactId, name: c.artifactName, runId: c.runId, attempt: c.attempt, archiveDigest: `sha256:${e.REPORT_ARCHIVE_DIGEST}` } };
+    if (e.REPORT_VIEW_ID) {
+      requireThat(['report', 'compare'].includes(e.REPORT_VIEW_ROLE) && /^[a-f0-9]{64}$/.test(e.REPORT_VIEW_DIGEST || ''), 'Invalid HTML upload binding');
+      binding.views = { [e.REPORT_VIEW_ROLE]: { artifactId: positiveInteger(Number(e.REPORT_VIEW_ID)), digest: `sha256:${e.REPORT_VIEW_DIGEST}` } };
+    }
     mkdirSync(e.REPORT_BINDING_DIRECTORY, { recursive: true });
     writeFileSync(join(e.REPORT_BINDING_DIRECTORY, 'binding.json'), JSON.stringify(binding, null, 2) + '\n');
     summary(`Artifact ID: ${artifactId}; archive SHA-256: \`${e.REPORT_ARCHIVE_DIGEST}\`.\n`);
@@ -114,7 +119,11 @@ async function main() {
           positiveInteger(b.artifact.id);
           requireThat(b.artifact.runId === plan.metadata.runId && b.artifact.attempt === plan.metadata.attempt
             && b.artifact.name === b.capture?.artifactName, 'Upload binding differs from run');
-          captures.push({ ...b.capture, upload: { artifactId: b.artifact.id } });
+          for (const [role, v] of Object.entries(b.views ?? {})) {
+            requireThat(['report', 'compare'].includes(role) && /^sha256:[a-f0-9]{64}$/.test(v.digest || ''), 'Invalid HTML binding');
+            positiveInteger(v.artifactId);
+          }
+          captures.push({ ...b.capture, upload: { artifactId: b.artifact.id, views: b.views } });
         }
       }
     }
