@@ -17,6 +17,10 @@ contracts, diagnostics and HTML rendering.
   Never execute artifact content or trust embedded URLs and PR numbers alone.
 - Use public Pulse interfaces. Do not duplicate the existing comparison engine
   or depend on internal package paths. Pulse #503 owns public compare access.
+  Explicit owner exception: `src/compare-validation.mjs` may use the exact
+  pinned beta.10 internals solely for opted-in validation until #503 ships.
+  Keep the isolated lockfile, byte pins, receipt and rejection tests. No automatic
+  fallback, version range, public-support promise or production release use.
 - Stage only explicit report outputs; do not upload whole workspaces or `.pulse/`.
 - Document what is implemented versus planned. Do not tag a consumer release or
   claim end-to-end PR evidence from mocked/local-only tests.
