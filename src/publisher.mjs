@@ -7,6 +7,7 @@ import { publisherClient, paginate } from './github.mjs';
 import { publisherPolicy, validateProducer, currentPull, sourceSnapshot } from './publisher-source.mjs';
 import { evidenceReader, reportName, statusName, captureIdentity, admitReport, admitBaseline } from './publisher-artifacts.mjs';
 import { presentationName } from './presentation.mjs';
+import { documentationFooter } from './documentation.mjs';
 
 export const marker = '<!-- pulse-report-action:v1 -->';
 const statePrefix = '<!-- pulse-report-state:';
@@ -15,7 +16,7 @@ const statePrefix = '<!-- pulse-report-state:';
 export const escapeLabel = value => String(value).replace(/[&<>|`\[\]\\\r\n*_!()#@~]/g, c => `&#${c.charCodeAt(0)};`);
 const artifactURL = (repository, run, id) => `https://github.com/${repository}/actions/runs/${run.id}/artifacts/${positiveInteger(id)}`;
 const stateFor = (run, pr) => ({ workflowId: run.workflow_id, runId: run.id, runNumber: run.run_number, attempt: run.run_attempt, headRevision: pr.head.sha });
-export function renderComment({ repository, pr, run, snapshot, rows }) {
+export function renderComment({ repository, pr, run, snapshot, rows, documentation }) {
   const state = stateFor(run, pr), e = escapeLabel;
   let text = `${marker}\n${statePrefix}${JSON.stringify(state)} -->\n## Pulse reports\n\nHead: \`${pr.head.sha}\`\n\nBaseline (merge-base): \`${snapshot.discovery.baselineRevision}\`\n\n[Capture run ${run.id}, attempt ${run.run_attempt}](https://github.com/${repository}/actions/runs/${run.id}) — ${run.conclusion}.\n\n`;
   if (!rows.length) text += 'No affected Pulse projects; no reports requested.\n';
@@ -26,7 +27,7 @@ export function renderComment({ repository, pr, run, snapshot, rows }) {
       text += `| ${e(projectLabel(row.root, repository))} | ${e(row.profile)} | ${link(row.reportView, 'report.html')} | ${link(row.compareView, 'compare.html')} | ${link(row.evidence ?? row.compare ?? row.report, 'evidence.zip')} | ${e(row.detail)} |\n`;
     }
   }
-  text += '\nHTML links download standalone files; evidence.zip contains the full JSON/HTML, checksums and provenance bundle. Downloads require GitHub sign-in and expire with artifact retention. HTML is not publicly hosted. Artifact identity and bytes were checked; project-produced build claims remain untrusted evidence. Comparisons using the beta.10 shim are validation-only.\n';
+  text += `\n${documentation}\n`;
   requireThat(Buffer.byteLength(text) <= 60000, 'Comment exceeds GitHub body bound'); return text;
 }
 export function ownedComment(comments, run) {
@@ -69,7 +70,7 @@ async function fresh({ api, run, pr, repository, policy }) {
     && r.head_sha === run.head_sha && r.head_repository?.full_name === run.head_repository.full_name
     && (r.run_number > run.run_number || (r.id === run.id && r.run_attempt > run.run_attempt)));
 }
-export async function publish({ api, repository, event, context, policy: inputPolicy, stage, dryRun = false, now = () => Date.now() }) {
+export async function publish({ api, repository, event, context, policy: inputPolicy, stage, dryRun = false, now = () => Date.now(), documentation = documentationFooter }) {
   const policy = publisherPolicy(inputPolicy);
   requireThat(context.eventName === 'workflow_run' && event.action === 'completed' && event.repository?.full_name === repository, 'Publisher requires its repository workflow_run completion');
   const repo = await api.json('');
@@ -154,7 +155,8 @@ export async function publish({ api, repository, event, context, policy: inputPo
   }
   const comments = await paginate(api, `/issues/${pr.number}/comments`), existing = ownedComment(comments, run);
   if (existing && (existing.state.runNumber > run.run_number || (existing.state.runId === run.id && existing.state.attempt > run.run_attempt))) return { status: 'ignored', reason: 'newer-comment' };
-  const body = renderComment({ repository, pr, run, snapshot, rows });
+  const footer = await documentation({ repository: policy.tooling.repository, sha: snapshot.toolingRevision });
+  const body = renderComment({ repository, pr, run, snapshot, rows, documentation: footer });
   // Global repository concurrency is held by the default-branch workflow.
   // Recheck PR head/base/test-merge and newest run/attempt immediately before
   // the one write. GitHub comments have no atomic PR-head precondition API.

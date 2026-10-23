@@ -18,7 +18,7 @@ test('prepare packages only exact tooling/plan and never project code, tokens or
   git(checkout, 'add', '-A'); git(checkout, 'commit', '-qm', 'base'); const base = git(checkout, 'rev-parse', 'HEAD');
   writeFileSync(join(checkout, 'source.ts'), 'PR'); git(checkout, 'add', '-A'); git(checkout, 'commit', '-qm', 'head'); const head = git(checkout, 'rev-parse', 'HEAD');
   mkdirSync(join(tooling, 'src'));
-  for (const name of ['contracts.mjs', 'discover.mjs', 'evidence.mjs', 'capture.mjs', 'workflow.mjs', 'baseline-evidence.mjs', 'baseline.mjs', 'comparison.mjs', 'extract-reports.py', 'presentation.mjs']) cpSync(fileURLToPath(new URL('../src/' + name, import.meta.url)), join(tooling, 'src', name));
+  for (const name of ['contracts.mjs', 'discover.mjs', 'evidence.mjs', 'capture.mjs', 'workflow.mjs', 'baseline-evidence.mjs', 'baseline.mjs', 'comparison.mjs', 'extract-reports.py', 'presentation.mjs', 'documentation.mjs']) cpSync(fileURLToPath(new URL('../src/' + name, import.meta.url)), join(tooling, 'src', name));
   git(tooling, 'add', '-A'); git(tooling, 'commit', '-qm', 'tooling'); const toolingRevision = git(tooling, 'rev-parse', 'HEAD');
   const input = { checkout, tooling, stage, inputs: { profiles: '["ci"]', setup_command: 'printf command-body-not-retained' },
     event: { number: 1, repository: { full_name: 'owner/consumer' }, pull_request: { base: { sha: base, repo: { full_name: 'owner/consumer' } }, head: { sha: head } } },
