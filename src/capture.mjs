@@ -155,7 +155,7 @@ export function capture({ checkout, output, task, discovery, metadata, inputs = 
 }
 
 export function executionIdentity({ options, packageManagerVersion, packageBytes, toolingRevision }) {
-  return { packageManager: options.packageManager, packageManagerVersion, node: process.version,
+  return { packageManager: options.packageManager, installDirectory: options.installDirectory, packageManagerVersion, node: process.version,
     packageSha256: sha256(packageBytes), setupSha256: sha256(options.setupCommand),
     buildSha256: sha256(options.buildCommand || 'pulse build [project] --profile [profile] --json'),
     toolingRevision, dependencyLifecycleScripts: false };

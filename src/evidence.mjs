@@ -42,6 +42,7 @@ export function validateManifest(m) {
   if (m.baseline.status === 'available') {
     requireThat(['base-json', 'base-html', 'compare-json', 'compare-html'].every(role => found.has(role)), 'Available baseline requires full report and comparison evidence');
   } else requireThat([...found].every(role => role.startsWith('head-')), 'Unavailable baseline cannot claim comparison evidence');
+  if (m.baseline.status === 'available' && m.comparisonAdapter === 'internal-beta10-validation-only') requireThat(found.has('compare-receipt'), 'Internal comparison requires the pinned adapter receipt');
   return m;
 }
 

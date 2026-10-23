@@ -12,7 +12,7 @@ export async function compareProject({ checkout, tooling, stage, output, task, i
   requireThat(options.compareInternal && sha256(JSON.stringify(options)) === plan.inputsSha256, 'Comparison requires the prepared validation opt-in');
   requireThat(plan.tasks.some(t => ['id', 'root', 'status', 'profile', 'reason'].every(k => t[k] === task[k])), 'Comparison task differs');
   mkdirSync(output);
-  const result = { ...lookup.head, comparison: true, artifactName: lookup.head.artifactName + '-comparison', baselineSource: { status: lookup.status, reason: lookup.reason ?? null } };
+  const result = { ...lookup.head, comparison: true, phase: 'comparison', artifactName: lookup.head.artifactName + '-comparison', baselineSource: { status: lookup.status, reason: lookup.reason ?? null } };
   try {
     if (!existsSync(join(stage, 'head'))) { writeFileSync(join(output, 'capture.json'), JSON.stringify(result, null, 2) + '\n'); return result; }
     const headRoot = join(stage, 'head'), head = verifyBundle(headRoot, JSON.parse(regularBytes(headRoot, 'manifest.json')));
@@ -49,9 +49,9 @@ export async function compareProject({ checkout, tooling, stage, output, task, i
     const manifest = sealBundle(output, { ...head, baseline, baselineSource: result.baselineSource,
       comparisonAdapter: 'internal-beta10-validation-only', compatibility: result.compatibility ?? null }, files);
     writeFileSync(join(output, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
-    result.files = manifest.files; result.baseline = baseline;
+    result.files = manifest.files; result.baseline = baseline; result.phase = 'complete';
   } catch {
-    result.status = 'failed'; result.failureCode = 'REPORT_ACTION_COMPARISON_FAILED';
+    result.status = 'failed'; delete result.files; delete result.baseline; result.failureCode = 'REPORT_ACTION_COMPARISON_FAILED';
     for (const name of ['head.json', 'head.html', 'base.json', 'base.html', 'compare.json', 'compare.html', 'compare-shim-receipt.json', 'manifest.json']) rmSync(join(output, name), { force: true });
   }
   writeFileSync(join(output, 'capture.json'), JSON.stringify(result, null, 2) + '\n'); return result;
