@@ -4,16 +4,21 @@ import { fileURLToPath } from 'node:url';
 import { requireThat, revision, safePath, projectRoot, projectId } from './contracts.mjs';
 
 const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-export function configurations(cwd, commit) {
+export function configurationRoots(entries) {
   const roots = new Set();
-  for (const row of git(cwd, ['ls-tree', '-r', '-z', '--full-tree', commit]).split('\0').filter(Boolean)) {
-    const tab = row.indexOf('\t'), name = row.slice(tab + 1);
-    if (name !== '.pulse/config.ts' && !name.endsWith('/.pulse/config.ts')) continue;
-    safePath(name);
-    requireThat(/^(100644|100755) blob [a-f0-9]+$/.test(row.slice(0, tab)), 'Pulse configuration must be a regular tracked file');
-    roots.add(name === '.pulse/config.ts' ? '.' : name.slice(0, -'/.pulse/config.ts'.length));
+  for (const { path, mode, type } of entries) {
+    if (path !== '.pulse/config.ts' && !path.endsWith('/.pulse/config.ts')) continue;
+    safePath(path);
+    requireThat(['100644', '100755'].includes(mode) && type === 'blob', 'Pulse configuration must be a regular tracked file');
+    roots.add(path === '.pulse/config.ts' ? '.' : path.slice(0, -'/.pulse/config.ts'.length));
   }
   return roots;
+}
+export function configurations(cwd, commit) {
+  return configurationRoots(git(cwd, ['ls-tree', '-r', '-z', '--full-tree', commit]).split('\0').filter(Boolean).map(row => {
+    const tab = row.indexOf('\t'), [mode, type] = row.slice(0, tab).split(' ');
+    return { mode, type, path: row.slice(tab + 1) };
+  }));
 }
 const contains = (root, path) => root === '.' || path.startsWith(root + '/');
 
@@ -27,9 +32,15 @@ export function discover({ cwd, base, head, ignorePrefixes = [] }) {
   }
   const baseline = revision(git(cwd, ['merge-base', base, head]).trim());
   const before = configurations(cwd, baseline), after = configurations(cwd, head);
+  const changed = git(cwd, ['diff', '--name-only', '--no-renames', '-z', baseline, head, '--']).split('\0').filter(Boolean);
+  return { schemaVersion: 'pulse.report-action.discovery.v1', targetBaseRevision: base,
+    baselineRevision: baseline, headRevision: head, ...selectProjects({ before, after, changed, ignorePrefixes }) };
+}
+
+export function selectProjects({ before, after, changed, ignorePrefixes = [] }) {
+  requireThat(Array.isArray(ignorePrefixes), 'ignorePrefixes must be an array'); ignorePrefixes.forEach(safePath);
   const roots = [...new Set([...before, ...after])].sort();
   requireThat(roots.length <= 256, 'Project discovery exceeds 256 roots');
-  const changed = git(cwd, ['diff', '--name-only', '--no-renames', '-z', baseline, head, '--']).split('\0').filter(Boolean);
   changed.forEach(safePath);
   const ignored = path => ignorePrefixes.some(prefix => path === prefix || path.startsWith(prefix + '/'));
   const relevant = changed.filter(path => !ignored(path));
@@ -42,8 +53,7 @@ export function discover({ cwd, base, head, ignorePrefixes = [] }) {
     .map(root => ({ id: projectId(root), root: projectRoot(root),
       status: !before.has(root) ? 'added' : !after.has(root) ? 'removed' : 'existing',
       reason: shared ? 'shared-input-change' : 'project-change' }));
-  return { schemaVersion: 'pulse.report-action.discovery.v1', targetBaseRevision: base,
-    baselineRevision: baseline, headRevision: head, changedFileCount: changed.length,
+  return { changedFileCount: changed.length,
     ignoredFileCount: changed.length - relevant.length, projects };
 }
 

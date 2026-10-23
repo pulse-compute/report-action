@@ -67,7 +67,7 @@ export function summarize({ plan, captures }) {
     const artifact = c?.upload?.artifactId ? `[download](https://github.com/${plan.metadata.repository}/actions/runs/${plan.metadata.runId}/artifacts/${c.upload.artifactId})` : '—';
     text += `| ${escaped(task.root)} | ${escaped(task.profile)} | ${escaped(c?.status ?? 'missing')} | ${escaped(c?.failureCode ?? c?.compatibility ?? c?.reason ?? (c ? 'Native report; baseline unavailable' : 'No matching terminal capture'))} | ${artifact} |\n`;
   }
-  return text + '\nDownload the named artifacts from this run. Artifacts require GitHub sign-in and expire with retention. Comparison artifacts are validation-only when opted in. No PR comment or provider qualification is claimed.\n';
+  return text + '\nDownload the named artifacts from this run. Artifacts require GitHub sign-in and expire with retention. Comparison artifacts are validation-only when opted in. PR comments require the separately installed publisher. No provider qualification is claimed.\n';
 }
 
 async function main() {

@@ -1,0 +1,63 @@
+name: Pulse verified PR publisher
+on:
+  workflow_call:
+    inputs:
+      policy_path:
+        description: Trusted policy path in the consumer default-branch checkout
+        type: string
+        default: .github/pulse-report-publisher.json
+      dry_run:
+        description: Validate and summarize without creating or updating a comment
+        type: boolean
+        default: false
+    secrets:
+      tooling_read_token:
+        description: Optional contents-read token for private cross-repository pinned tooling checkout
+        required: false
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+# Serialize all source workflow runs, including forks with empty PR metadata.
+# GitHub keeps at most one pending run; every admitted run rechecks newest state.
+concurrency:
+  group: pulse-report-publisher-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: github.event_name == 'workflow_run' && github.event.action == 'completed' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout reviewed publisher source, never the PR
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          token: ${{ secrets.tooling_read_token || github.token }}
+          path: report-tooling
+          persist-credentials: false
+      - name: Checkout default-branch policy at the publisher event revision
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+          path: publisher-policy
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.18.0
+      - name: Authenticate bounded data and maintain the bot-owned comment
+        run: |
+          node --input-type=module - <<'JS'
+          import { contained } from './report-tooling/src/capture.mjs';
+          import { spawnSync } from 'node:child_process';
+          const policy = contained('publisher-policy', process.env.REPORT_POLICY_PATH);
+          const result = spawnSync(process.execPath, ['report-tooling/src/publisher.mjs'], {
+            stdio: 'inherit', env: { ...process.env, REPORT_POLICY: policy },
+          });
+          process.exit(result.status ?? 1);
+          JS
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT_POLICY_PATH: ${{ inputs.policy_path }}
+          REPORT_DRY_RUN: ${{ inputs.dry_run }}

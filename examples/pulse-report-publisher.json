@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "pulse.report-action.publisher-policy.v1",
+  "captureWorkflow": ".github/workflows/pulse-reports.yml",
+  "tooling": {
+    "repository": "pulse-compute/report-action",
+    "workflow": ".github/workflows/reports.yml",
+    "revision": "REVIEWED_FULL_CAPTURE_COMMIT_SHA"
+  },
+  "inputs": {
+    "profiles": ["local"],
+    "package_manager": "npm",
+    "install_directory": ".",
+    "pulse_version": "1.0.0-beta.10",
+    "compare_internal_beta10": false
+  },
+  "providers": { "local": "node" },
+  "nodeVersion": "v24.18.0",
+  "npmVersion": "11.16.0"
+}

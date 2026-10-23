@@ -83,9 +83,9 @@ export function verifyBundle(root, manifest) {
 // The caller must obtain expected identity from GitHub's authenticated run/PR
 // metadata, never from the downloaded bundle itself. Hashes bind bytes; they
 // do not attest that an untrusted build made truthful claims.
-export function validateArtifactBinding({ artifact, run, manifest, expected, now = Date.now() }) {
+export function validateArtifactBinding({ artifact, run, manifest, expected, now = Date.now(), allowFailedRun = false }) {
   validateManifest(manifest);
-  requireThat(run?.status === 'completed' && run.conclusion === 'success' && run.event === 'pull_request', 'Artifact run is not successful PR evidence');
+  requireThat(run?.status === 'completed' && (run.conclusion === 'success' || (allowFailedRun === true && run.conclusion === 'failure')) && run.event === 'pull_request', 'Artifact run is not eligible terminal PR evidence');
   requireThat(run.repository?.full_name === expected.repository && run.head_repository?.full_name === expected.headRepository, 'Run repository identity mismatch');
   requireThat(run.head_sha === expected.headRevision && run.path === expected.workflowPath, 'Run revision or workflow mismatch');
   requireThat(run.id === expected.runId && run.run_attempt === expected.attempt, 'Run identity or attempt mismatch');

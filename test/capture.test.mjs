@@ -12,10 +12,10 @@ test('capture options reject floating versions, shell profile injection and inva
 test('project subprocesses receive neither repository tokens nor GitHub file-command paths', () => {
   const before = { ...process.env };
   try {
-    process.env.GITHUB_TOKEN = 'token'; process.env.ACTIONS_RUNTIME_TOKEN = 'runtime'; process.env.GITHUB_OUTPUT = '/tmp/nope';
-    const value = execute(process.execPath, ['-e', 'process.stdout.write(JSON.stringify([process.env.GITHUB_TOKEN,process.env.ACTIONS_RUNTIME_TOKEN,process.env.GITHUB_OUTPUT]))']);
-    assert.equal(value, '[null,null,null]');
-  } finally { for (const name of ['GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'GITHUB_OUTPUT']) {
+    process.env.GITHUB_TOKEN = 'token'; process.env.ACTIONS_RUNTIME_TOKEN = 'runtime'; process.env.GITHUB_OUTPUT = '/tmp/nope'; process.env.GITHUB_STATE = '/tmp/never-write-state';
+    const value = execute(process.execPath, ['-e', 'process.stdout.write(JSON.stringify([process.env.GITHUB_TOKEN,process.env.ACTIONS_RUNTIME_TOKEN,process.env.GITHUB_OUTPUT,process.env.GITHUB_STATE]))']);
+    assert.equal(value, '[null,null,null,null]');
+  } finally { for (const name of ['GITHUB_TOKEN', 'ACTIONS_RUNTIME_TOKEN', 'GITHUB_OUTPUT', 'GITHUB_STATE']) {
     if (before[name] === undefined) delete process.env[name]; else process.env[name] = before[name];
   } }
 });
