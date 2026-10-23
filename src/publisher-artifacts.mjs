@@ -19,13 +19,21 @@ export function artifactMetadata(artifact, run, now) {
 }
 export function evidenceReader({ api, stage, now = () => Date.now(), budget = maxTotal }) {
   requireThat(Number.isSafeInteger(budget) && budget > 0 && budget <= maxTotal, 'Invalid download budget');
-  const cache = new Map(); let total = 0;
-  return async function read(artifact, run) {
+  const cache = new Map(), downloads = new Map(); let total = 0;
+  async function download(artifact, run) {
     if (!artifactMetadata(artifact, run, now())) return null;
-    if (!cache.has(artifact.id)) {
+    if (!downloads.has(artifact.id)) {
       requireThat(total + artifact.size_in_bytes <= budget, 'Evidence download budget exceeded');
       const bytes = await api.archive(artifact.id); total += bytes.length;
       requireThat(bytes.length === artifact.size_in_bytes && total <= budget && `sha256:${sha256(bytes)}` === artifact.digest, 'Archive digest, size or budget mismatch');
+      downloads.set(artifact.id, bytes);
+    }
+    return downloads.get(artifact.id);
+  }
+  async function read(artifact, run) {
+    const bytes = await download(artifact, run);
+    if (!bytes) return null;
+    if (!cache.has(artifact.id)) {
       const path = join(stage, `artifact-${artifact.id}`), archive = path + '.zip';
       // Never extract or parse before verifying the authenticated archive digest.
       writeFileSync(archive, bytes, { flag: 'wx', mode: 0o600 });
@@ -34,7 +42,17 @@ export function evidenceReader({ api, stage, now = () => Date.now(), budget = ma
       cache.set(artifact.id, { root: path, capture, entries: readdirSync(path).sort() });
     }
     return cache.get(artifact.id);
+  }
+  read.view = async (artifact, run, file) => {
+    // Direct artifacts are bytes, never ZIPs to extract or HTML to evaluate.
+    requireThat(file && file.bytes <= 64 * 1024 * 1024 && artifact.size_in_bytes === file.bytes
+      && artifact.digest === `sha256:${file.sha256}`, 'HTML presentation differs from verified evidence');
+    const bytes = await download(artifact, run);
+    if (!bytes) return null;
+    requireThat(bytes.length === file.bytes && sha256(bytes) === file.sha256, 'HTML presentation bytes differ');
+    return artifact;
   };
+  return read;
 }
 function metadata(root, name) { const b = regularBytes(root, name); requireThat(b.length <= 65536, 'Oversized evidence metadata'); return b; }
 export function captureIdentity(c, task, run, snapshot, names) {

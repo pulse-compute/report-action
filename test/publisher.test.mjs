@@ -13,6 +13,7 @@ import { sealBundle } from '../src/evidence.mjs';
 import { execute } from '../src/capture.mjs';
 import { sha256 } from '../src/contracts.mjs';
 import { publisherClient } from '../src/github.mjs';
+import { presentationName } from '../src/presentation.mjs';
 
 const sha = digit => digit.repeat(40), now = Date.parse('2026-10-23T05:00:00Z');
 const bot = { id: 41898282, login: 'github-actions[bot]', type: 'Bot' };
@@ -36,7 +37,7 @@ async function harness(t, { fork = false, comparison = false, root = 'apps/app',
     entry('package.json', JSON.stringify({ devDependencies: { '@pulse-compute/cli': '1.0.0-beta.10' } })),
     entry('package-lock.json', JSON.stringify({ packages: { 'node_modules/@pulse-compute/cli': { version: '1.0.0-beta.10' } } }))];
   const before = [...(added ? common.filter(e => !e.path.endsWith('/.pulse/config.ts')) : common), entry(`${root}/src.ts`, 'before')], after = [...common, entry(`${root}/src.ts`, 'after')];
-  const artifacts = [], archives = new Map(), comments = [], mutations = [], calls = [];
+  const artifacts = [], archives = new Map(), directories = new Map(), comments = [], mutations = [], calls = [];
   const state = { pr, run, associated: [{ number: pr.number }], openPulls: [], latestRuns: [run], comments, artifacts, before, after, blobs, hook: null, extra: new Map() };
   const api = {
     async json(path, options) {
@@ -71,6 +72,13 @@ async function harness(t, { fork = false, comparison = false, root = 'apps/app',
   function upload(dir, name, extraEntries) {
     const bytes = zipDirectory(dir, extraEntries), id = 200 + serial;
     const a = { id, name, size_in_bytes: bytes.length, digest: 'sha256:' + sha256(bytes), expired: false, expires_at: '2027-01-01', workflow_run: { id: run.id, head_sha: run.head_sha } };
+    artifacts.push(a); archives.set(id, bytes); directories.set(id, dir); return a;
+  }
+  function view(bundle, role, bytes) {
+    bytes ??= readFileSync(join(directories.get(bundle.id), role === 'report' ? 'head.html' : 'compare.html'));
+    const id = 10000 + serial++;
+    const a = { id, name: presentationName(bundle.name, role), size_in_bytes: bytes.length, digest: 'sha256:' + sha256(bytes), expired: false,
+      expires_at: '2027-01-01', workflow_run: { id: run.id, head_sha: run.head_sha } };
     artifacts.push(a); archives.set(id, bytes); return a;
   }
   function bundle({ compare = false, status = 'captured', missingBaseline = null, mutateManifest, mutateCapture, extraEntries, mutateFiles } = {}) {
@@ -113,7 +121,7 @@ async function harness(t, { fork = false, comparison = false, root = 'apps/app',
   const args = { api, repository, policy, event: { action: 'completed', repository: { full_name: repository }, workflow_run: { id: run.id, run_attempt: run.run_attempt, event: 'pull_request' } },
     context: { eventName: 'workflow_run', ref: 'refs/heads/main' }, stage: join(temp, 'stage'), now: () => now };
   async function invoke(overrides = {}) { return publish({ ...args, stage: join(temp, 'stage-' + serial++), ...overrides }); }
-  return { temp, api, args, invoke, state, task, expected, snapshot, run, pr, policy, bundle, upload, archives, artifacts, mutations, calls, comments };
+  return { temp, api, args, invoke, state, task, expected, snapshot, run, pr, policy, bundle, upload, view, archives, artifacts, mutations, calls, comments };
 }
 
 test('same-repository and fork PRs use authenticated commit association and GitHub-issued report links', async t => {
@@ -167,7 +175,7 @@ test('expired and missing reports stay explicit and receive no artifact links', 
 test('failed workflow preserves bounded failed capture state without requiring whole-run success', async t => {
   const f = await harness(t, { conclusion: 'failure' }); f.bundle({ status: 'failed' });
   assert.match((await f.invoke()).body, /failed: REPORT&#95;ACTION&#95;BUILD&#95;FAILED/);
-  const g = await harness(t, { conclusion: 'failure' }); g.bundle(); assert.match((await g.invoke()).body, /HTML \+ JSON/);
+  const g = await harness(t, { conclusion: 'failure' }); g.bundle(); assert.match((await g.invoke()).body, /evidence\.zip/);
 });
 test('forged PR/repository/head/recipe/attempt and source workflow identities reject with no write', async t => {
   for (const mutate of [m => m.pullRequest++, m => m.repository = 'attacker/repo', m => m.headRevision = sha('6'), m => m.baselineRevision = sha('6'),
@@ -184,9 +192,9 @@ test('archive/file tampering, traversal, duplicates, extra code and symlinks rej
   }
   const f = await harness(t); const a = f.bundle(); f.archives.set(a.id, Buffer.from('wrong archive')); await assert.rejects(f.invoke(), /Archive digest/); assert.equal(f.mutations.length, 0);
 });
-test('comparison and head archives have separate links and preserve unknown compatibility; absent baseline has no compare link', async t => {
+test('one complete evidence archive preserves comparison compatibility; absent baseline has no compare HTML link', async t => {
   const f = await harness(t, { comparison: true }); const head = f.bundle(), compared = f.bundle({ compare: true });
-  const r = await f.invoke(); assert.ok(r.body.includes(`/artifacts/${head.id}`)); assert.ok(r.body.includes(`/artifacts/${compared.id}`)); assert.match(r.body, /validation comparison: unknown/);
+  const r = await f.invoke(); assert.ok(!r.body.includes(`/artifacts/${head.id}`)); assert.ok(r.body.includes(`/artifacts/${compared.id}`)); assert.match(r.body, /validation comparison: unknown/);
   const g = await harness(t, { comparison: true, added: true }); g.bundle(); g.bundle({ compare: true, missingBaseline: 'new-project' });
   const missing = await g.invoke(); assert.match(missing.body, /baseline unavailable: new-project/); assert.equal((missing.body.match(/\/artifacts\//g) ?? []).length, 1);
 });
@@ -279,4 +287,35 @@ test('forks with empty run and base-commit associations resolve only an exact au
   assert.equal((await f.invoke()).status, 'created');
   assert.ok(f.calls.some(c => c.path?.startsWith('/pulls?state=open&head=contributor%3Afeature')));
   f.state.pr.head.ref = 'other-branch'; assert.equal((await f.invoke()).status, 'ignored'); assert.equal(f.mutations.length, 1);
+});
+
+test('three downloads expose exact raw HTML and one complete evidence ZIP', async t => {
+  const f = await harness(t, { comparison: true });
+  const head = f.bundle(), comparison = f.bundle({ compare: true });
+  const report = f.view(head, 'report'), compare = f.view(comparison, 'compare');
+  const r = await f.invoke();
+  assert.ok(r.body.includes(`[report.html](https://github.com/owner/repo/actions/runs/101/artifacts/${report.id})`));
+  assert.ok(r.body.includes(`[compare.html](https://github.com/owner/repo/actions/runs/101/artifacts/${compare.id})`));
+  assert.ok(r.body.includes(`[evidence.zip](https://github.com/owner/repo/actions/runs/101/artifacts/${comparison.id})`));
+  assert.equal((r.body.match(/\/artifacts\//g) ?? []).length, 3);
+  assert.equal(r.rows, undefined); // Live result contains the comment, not raw HTML.
+  assert.equal(f.mutations.length, 1);
+});
+test('raw HTML digest, transport bytes, run identity and duplicate names fail closed', async t => {
+  for (const kind of ['digest', 'transport', 'run', 'duplicate']) {
+    const f = await harness(t); const bundle = f.bundle();
+    const a = f.view(bundle, 'report', kind === 'digest' ? Buffer.from('wrong HTML') : undefined);
+    if (kind === 'transport') f.archives.set(a.id, Buffer.alloc(a.size_in_bytes, 120));
+    if (kind === 'run') a.workflow_run.id++;
+    if (kind === 'duplicate') f.view(bundle, 'report');
+    await assert.rejects(f.invoke(), /presentation|digest|metadata|Ambiguous/);
+    assert.equal(f.mutations.length, 0);
+  }
+});
+test('missing and expired standalone views keep verified evidence with explicit missing links', async t => {
+  const f = await harness(t); const bundle = f.bundle(); f.view(bundle, 'report').expired = true;
+  const r = await f.invoke();
+  assert.match(r.body, /report.html unavailable/);
+  assert.ok(!r.body.includes('[report.html](')); assert.ok(!r.body.includes('[compare.html]('));
+  assert.ok(r.body.includes(`[evidence.zip](https://github.com/owner/repo/actions/runs/101/artifacts/${bundle.id})`));
 });

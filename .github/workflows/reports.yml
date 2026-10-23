@@ -122,6 +122,22 @@ jobs:
           REPORT_TASK: ${{ toJSON(matrix) }}
           REPORT_INPUTS: ${{ toJSON(inputs) }}
           REPORT_BUNDLE: ${{ runner.temp }}/pulse-report-bundle
+      - id: views
+        if: always() && steps.capture.outputs.artifact_name != ''
+        name: Stage verified standalone HTML without executing it
+        run: node "$REPORT_TOOLING/src/presentation.mjs"
+        env:
+          REPORT_TOOLING: ${{ github.workspace }}/report-tooling
+          REPORT_BUNDLE: ${{ runner.temp }}/pulse-report-bundle
+          REPORT_PRESENTATIONS: ${{ runner.temp }}/pulse-report-views
+      - id: html
+        if: always() && steps.views.outputs.report_path != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: ${{ steps.views.outputs.report_path }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
       - id: report
         if: always() && steps.capture.outputs.artifact_name != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -144,6 +160,9 @@ jobs:
           REPORT_BINDING_DIRECTORY: ${{ runner.temp }}/pulse-report-binding
           REPORT_ARTIFACT_ID: ${{ steps.report.outputs.artifact-id }}
           REPORT_ARCHIVE_DIGEST: ${{ steps.report.outputs.artifact-digest }}
+          REPORT_VIEW_ROLE: report
+          REPORT_VIEW_ID: ${{ steps.html.outputs.artifact-id }}
+          REPORT_VIEW_DIGEST: ${{ steps.html.outputs.artifact-digest }}
       - if: always() && steps.binding.outcome == 'success'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -202,6 +221,22 @@ jobs:
           REPORT_BUNDLE: ${{ runner.temp }}/pulse-comparison-bundle
           REPORT_TASK: ${{ toJSON(matrix) }}
           REPORT_INPUTS: ${{ toJSON(inputs) }}
+      - id: views
+        if: always() && steps.compare.outputs.artifact_name != ''
+        name: Stage verified standalone HTML without executing it
+        run: node "$REPORT_TOOLING/src/presentation.mjs"
+        env:
+          REPORT_TOOLING: ${{ github.workspace }}/report-tooling
+          REPORT_BUNDLE: ${{ runner.temp }}/pulse-comparison-bundle
+          REPORT_PRESENTATIONS: ${{ runner.temp }}/pulse-compare-views
+      - id: html
+        if: always() && steps.views.outputs.compare_path != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: ${{ steps.views.outputs.compare_path }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
       - id: report
         if: always() && steps.compare.outputs.artifact_name != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -228,6 +263,9 @@ jobs:
           REPORT_BINDING_DIRECTORY: ${{ runner.temp }}/pulse-comparison-binding
           REPORT_ARTIFACT_ID: ${{ steps.report.outputs.artifact-id }}
           REPORT_ARCHIVE_DIGEST: ${{ steps.report.outputs.artifact-digest }}
+          REPORT_VIEW_ROLE: compare
+          REPORT_VIEW_ID: ${{ steps.html.outputs.artifact-id }}
+          REPORT_VIEW_DIGEST: ${{ steps.html.outputs.artifact-digest }}
       - if: always() && steps.binding.outcome == 'success'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
