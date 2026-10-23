@@ -33,10 +33,11 @@ async function harness(t, { fork = false, comparison = false, root = 'apps/app',
     blobs.set(id, { sha: id, encoding: 'base64', size: bytes.length, content: bytes.toString('base64') });
     return { path, mode, type: 'blob', sha: id, size: bytes.length };
   }
-  const common = [entry(`${root}/.pulse/config.ts`, "throw new Error('publisher must never execute config')"),
+  const prefix = root === '.' ? '' : root + '/';
+  const common = [entry(`${prefix}.pulse/config.ts`, "throw new Error('publisher must never execute config')"),
     entry('package.json', JSON.stringify({ devDependencies: { '@pulse-compute/cli': '1.0.0-beta.10' } })),
     entry('package-lock.json', JSON.stringify({ packages: { 'node_modules/@pulse-compute/cli': { version: '1.0.0-beta.10' } } }))];
-  const before = [...(added ? common.filter(e => !e.path.endsWith('/.pulse/config.ts')) : common), entry(`${root}/src.ts`, 'before')], after = [...common, entry(`${root}/src.ts`, 'after')];
+  const before = [...(added ? common.filter(e => e.path !== `${prefix}.pulse/config.ts`) : common), entry(`${prefix}src.ts`, 'before')], after = [...common, entry(`${prefix}src.ts`, 'after')];
   const artifacts = [], archives = new Map(), directories = new Map(), comments = [], mutations = [], calls = [];
   const state = { pr, run, associated: [{ number: pr.number }], openPulls: [], latestRuns: [run], comments, artifacts, before, after, blobs, hook: null, extra: new Map() };
   const api = {
@@ -202,6 +203,13 @@ test('trusted policy—not plan artifacts—controls recipes; labels and mention
   const f = await harness(t, { root: 'apps/a|[x]@team' }); f.bundle(); const r = await f.invoke();
   assert.ok(!r.body.includes('a|[x]@team')); assert.ok(r.body.includes('&#64;team')); assert.ok(!escapeLabel('[x](javascript:alert(1))').includes('[x]('));
   const g = await harness(t); g.bundle(); g.policy.providers.ci = 'fastly'; const mismatch = await g.invoke(); assert.match(mismatch.body, /missing report evidence/); assert.ok(!mismatch.body.includes('/artifacts/'));
+});
+test('published project names use the repository at root and the immediate containing directory when nested', async t => {
+  for (const [root, label] of [['.', 'repo'], ['apps/payments', 'payments']]) {
+    const f = await harness(t, { root }); f.bundle(); const r = await f.invoke();
+    assert.ok(r.body.includes(`| ${label} | ci |`));
+    assert.equal(f.task.root, root);
+  }
 });
 test('publisher context, workflow ID, source repository and test-merge parent identity fail closed', async t => {
   const f = await harness(t); f.bundle();

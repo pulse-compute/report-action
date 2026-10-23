@@ -3,7 +3,7 @@ import { join, resolve, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { discover, configurations } from './discover.mjs';
 import { capture, normalizeInputs, execute } from './capture.mjs';
-import { requireThat, revision, positiveInteger, sha256, projectId } from './contracts.mjs';
+import { requireThat, revision, positiveInteger, sha256, projectId, projectLabel } from './contracts.mjs';
 
 const output = (name, value) => {
   const text = typeof value === 'string' ? value : JSON.stringify(value);
@@ -66,7 +66,7 @@ export function summarize({ plan, captures }) {
     const c = compared.length === 1 ? compared[0] : !plan.comparisonRequested && matches.length === 1 ? matches[0] : null;
     const link = (id, label) => id ? `[${label}](https://github.com/${plan.metadata.repository}/actions/runs/${plan.metadata.runId}/artifacts/${positiveInteger(id)})` : '—';
     const head = matches.find(m => m.comparison !== true);
-    text += `| ${escaped(task.root)} | ${escaped(task.profile)} | ${escaped(c?.status ?? 'missing')} | ${escaped(c?.failureCode ?? c?.compatibility ?? c?.reason ?? (c ? 'Native report; baseline unavailable' : 'No matching terminal capture'))} | ${link(head?.upload?.views?.report?.artifactId, 'report.html')} | ${link(c?.upload?.views?.compare?.artifactId, 'compare.html')} | ${link(c?.upload?.artifactId, 'evidence.zip')} |\n`;
+    text += `| ${escaped(projectLabel(task.root, plan.metadata.repository))} | ${escaped(task.profile)} | ${escaped(c?.status ?? 'missing')} | ${escaped(c?.failureCode ?? c?.compatibility ?? c?.reason ?? (c ? 'Native report; baseline unavailable' : 'No matching terminal capture'))} | ${link(head?.upload?.views?.report?.artifactId, 'report.html')} | ${link(c?.upload?.views?.compare?.artifactId, 'compare.html')} | ${link(c?.upload?.artifactId, 'evidence.zip')} |\n`;
   }
   return text + '\nDownload the named artifacts from this run. Artifacts require GitHub sign-in and expire with retention. Comparison artifacts are validation-only when opted in. PR comments require the separately installed publisher. No provider qualification is claimed.\n';
 }

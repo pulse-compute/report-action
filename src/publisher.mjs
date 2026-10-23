@@ -2,7 +2,7 @@ import { readFileSync, mkdirSync, mkdtempSync, rmSync, appendFileSync } from 'no
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { requireThat, positiveInteger, revision } from './contracts.mjs';
+import { requireThat, positiveInteger, revision, projectLabel } from './contracts.mjs';
 import { publisherClient, paginate } from './github.mjs';
 import { publisherPolicy, validateProducer, currentPull, sourceSnapshot } from './publisher-source.mjs';
 import { evidenceReader, reportName, statusName, captureIdentity, admitReport, admitBaseline } from './publisher-artifacts.mjs';
@@ -23,7 +23,7 @@ export function renderComment({ repository, pr, run, snapshot, rows }) {
     text += '| Project | Profile | Report | Compare | Evidence | State |\n| --- | --- | --- | --- | --- | --- |\n';
     for (const row of rows) {
       const link = (artifact, label) => artifact ? `[${label}](${artifactURL(repository, run, artifact.id)})` : '—';
-      text += `| ${e(row.root)} | ${e(row.profile)} | ${link(row.reportView, 'report.html')} | ${link(row.compareView, 'compare.html')} | ${link(row.evidence ?? row.compare ?? row.report, 'evidence.zip')} | ${e(row.detail)} |\n`;
+      text += `| ${e(projectLabel(row.root, repository))} | ${e(row.profile)} | ${link(row.reportView, 'report.html')} | ${link(row.compareView, 'compare.html')} | ${link(row.evidence ?? row.compare ?? row.report, 'evidence.zip')} | ${e(row.detail)} |\n`;
     }
   }
   text += '\nHTML links download standalone files; evidence.zip contains the full JSON/HTML, checksums and provenance bundle. Downloads require GitHub sign-in and expire with artifact retention. HTML is not publicly hosted. Artifact identity and bytes were checked; project-produced build claims remain untrusted evidence. Comparisons using the beta.10 shim are validation-only.\n';

@@ -30,3 +30,15 @@ test('summary distinguishes missing/failed/skipped evidence and escapes project 
   assert.match(text, /missing/); assert.match(text, /REPORT_ACTION_BUILD_FAILED/); assert.match(text, /project-removed/);
   assert.ok(!text.includes('app|[link]')); assert.match(text, /artifacts\/3/);
 });
+test('summary names root and nested projects while matching evidence by full path', () => {
+  const plan = { discovery: { headRevision: '1'.repeat(40), baselineRevision: '2'.repeat(40) },
+    metadata: { repository: 'owner/storefront', runId: 1, attempt: 1 },
+    tasks: ['.', 'apps/payments', 'services/payments'].map(root => ({ root, profile: 'ci' })) };
+  const captures = [{ project: 'services/payments', profile: 'ci', runId: 1, attempt: 1,
+    headRevision: plan.discovery.headRevision, status: 'failed', failureCode: 'REPORT_ACTION_BUILD_FAILED' }];
+  const text = summarize({ plan, captures });
+  assert.match(text, /\| storefront \| ci \| missing \|/);
+  assert.match(text, /\| payments \| ci \| missing \|/);
+  assert.match(text, /\| payments \| ci \| failed \| REPORT_ACTION_BUILD_FAILED/);
+  assert.ok(!text.includes('| apps/payments |'));
+});

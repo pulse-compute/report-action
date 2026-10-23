@@ -11,7 +11,7 @@ import { buildMatrix } from '../src/workflow.mjs';
 
 const source = fileURLToPath(new URL('../fixtures/consumer/', import.meta.url));
 function fixture(t) {
-  const temp = mkdtempSync(join(tmpdir(), 'pulse capture consumer ')), checkout = join(temp, 'repository');
+  const temp = mkdtempSync(join(tmpdir(), 'pulse capture consumer ')), checkout = join(temp, 'report-fixture');
   t.after(() => rmSync(temp, { recursive: true, force: true }));
   cpSync(source, checkout, { recursive: true, filter: name => !['node_modules', 'dist', 'reports'].includes(basename(name)) });
   const git = (...args) => execute('git', args, { cwd: checkout }).trim();
@@ -19,7 +19,7 @@ function fixture(t) {
   git('add', '-A'); git('commit', '-qm', 'consumer baseline'); const base = git('rev-parse', 'HEAD');
   writeFileSync(join(checkout, 'src/index.ts'), readFileSync(join(checkout, 'src/index.ts'), 'utf8') + '\n// PR source change\n');
   git('add', '-A'); git('commit', '-qm', 'consumer PR'); const head = git('rev-parse', 'HEAD');
-  const metadata = { repository: 'fixture/consumer', pullRequest: 1, runId: 123, attempt: 1, event: 'pull_request',
+  const metadata = { repository: 'fixture/report-fixture', pullRequest: 1, runId: 123, attempt: 1, event: 'pull_request',
     workflowPath: '.github/workflows/pulse.yml', workflowRevision: head, toolingRevision: 'a'.repeat(40) };
   const discovery = discover({ cwd: checkout, base, head });
   // Changing the root project affects root; select nested explicitly via a
@@ -44,6 +44,10 @@ test('real npm-installed beta.10 captures root and nested Native projects with e
     assert.deepEqual(readdirSync(output).sort(), ['capture.json', 'head.html', 'head.json', 'manifest.json']);
     const capsule = JSON.parse(readFileSync(join(output, 'head.json')));
     assert.equal(capsule.provenance.revision, null); assert.equal(capsule.context.target, 'native');
+    const label = task.root === '.' ? 'report-fixture' : 'nested';
+    assert.equal(capsule.application.name, label);
+    const html = readFileSync(join(output, 'head.html'), 'utf8');
+    assert.ok(html.includes(JSON.stringify(label)), 'HTML retains the generated application name');
   }
 });
 test('failed custom build retains only bounded status and stable diagnostics, without raw command output', t => {

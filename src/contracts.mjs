@@ -24,3 +24,8 @@ export function positiveInteger(value) {
 export function projectId(root) {
   return sha256(projectRoot(root)).slice(0, 20);
 }
+export function projectLabel(root, repository) {
+  if (projectRoot(root) !== '.') return root.split('/').at(-1);
+  requireThat(safePath(repository).split('/').length === 2, 'Expected owner/repository identity');
+  return repository.split('/')[1];
+}
