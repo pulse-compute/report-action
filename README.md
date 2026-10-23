@@ -2,7 +2,7 @@
 
 Reusable GitHub automation for Pulse report and comparison evidence on pull requests.
 
-**Status: Native capture, exact baseline recovery and opted-in comparisons are implemented for validation.** No `@v1` release tag exists. Use a reviewed commit SHA. A separate verified PR publisher is implemented with an installation template; consumer release still requires the supported Pulse #503 adapter and RA-04 qualification. The temporary beta.10 adapter requires explicit opt-in and produces a validation receipt.
+**Status: Native capture, exact baseline recovery and opted-in comparisons are implemented for validation.** No `@v1` release tag exists. Use a reviewed commit SHA. A separate verified PR publisher is implemented with an installation template; consumer release still requires the supported Pulse #503 adapter and RA-04 qualification. The temporary beta.10 adapter requires explicit opt-in and produces a validation receipt. [RA-04 progress](docs/qualification.md) records observed external-consumer results and the remaining release gates.
 
 ## Intended consumer experience
 
@@ -56,7 +56,7 @@ npm test
 npm run test:capture
 ```
 
-`test:capture` creates isolated temporary consumer Git repositories and installs real beta.10 packages with scripts disabled. It covers root/nested reports, failure/status handling, plan-only rejection, JavaScript skip, no-op selection and removed projects. The self-caller in CI additionally exercises the actual reusable workflow and GitHub artifact handoff; separate external consumers/fork publishing remain RA-04/RA-03 qualification. npm capture is exercised now; the pnpm path remains a separate consumer-matrix obligation in RA-04.
+`test:capture` creates isolated temporary consumer Git repositories and installs real beta.10 packages with scripts disabled. It covers root/nested reports, failure/status handling, plan-only rejection, JavaScript skip, no-op selection and removed projects. The self-caller in CI additionally exercises the actual reusable workflow and GitHub artifact handoff; additional consumer/package-manager cases and external-fork publishing remain RA-04 qualification. Observed external npm consumer results are recorded in [RA-04 progress](docs/qualification.md). npm capture is exercised now; the pnpm path remains a separate consumer-matrix obligation in RA-04.
 
 ## Exact baseline and comparison validation
 
@@ -72,7 +72,7 @@ Comparison bundles contain `head.json/html`, `base.json/html`, `compare.json/htm
 
 Only the lookup step receives an explicit read-only GitHub token; baseline setup/build steps receive no repository secret or write token. The optional cross-repository tooling token remains confined to discovery. Artifact HTML is never evaluated by orchestration. These boundaries do not turn arbitrary project code into sandboxed or trusted evidence.
 
-`npm test` covers metadata/retention/attempt/recipe and adversarial ZIP boundaries. `npm run test:capture` builds real installed baseline/head revisions, exercises exact rebuild and approved-push capture/reuse, and verifies new/failed baselines. A synthetic provider mismatch made with the pinned capsule constructor checks incompatible results retain null deltas; it is not a fresh provider qualification. Hosted self-calls additionally validate the actual GitHub handoff. Publisher orchestration is implemented below; live default-branch/fork delivery and external consumer/pnpm qualification remain RA-04.
+`npm test` covers metadata/retention/attempt/recipe and adversarial ZIP boundaries. `npm run test:capture` builds real installed baseline/head revisions, exercises exact rebuild and approved-push capture/reuse, and verifies new/failed baselines. A synthetic provider mismatch made with the pinned capsule constructor checks incompatible results retain null deltas; it is not a fresh provider qualification. Hosted self-calls additionally validate the actual GitHub handoff. Publisher orchestration is implemented below. [RA-04 progress](docs/qualification.md) separates observed external npm consumer capture/publishing from pending pnpm, external-fork and broader matrix qualification.
 
 ## Implementation queue
 
@@ -177,7 +177,7 @@ Repository-wide publication concurrency spans all PRs, including fork events wit
 
 Initial installation without this default-branch publisher continues to expose capture job-summary links. Artifacts require sign-in and expire with their configured retention; the publisher neither hosts HTML nor changes artifact retention. Removing the publisher does not grant capture jobs any comment permission.
 
-Publisher tests use authenticated-API fixtures, real ZIP files and adversarial payloads for same-repository/fork association, PR/head/recipe forgery, expired evidence, newer runs, stale attempts, removed/no-op projects, baseline origin, duplicate versus update behavior, escaping and extraction limits. The installed-CLI integration also admits a freshly generated real comparison bundle. **Live default-branch bot-comment delivery, including a real external fork, is not claimed by those tests.** It remains an installation/RA-04 qualification step after the publisher template and policy are reviewed and installed. No release tag or external consumer installation is created here.
+Publisher tests use authenticated-API fixtures, real ZIP files and adversarial payloads for same-repository/fork association, PR/head/recipe forgery, expired evidence, newer runs, stale attempts, removed/no-op projects, baseline origin, duplicate versus update behavior, escaping and extraction limits. The installed-CLI integration also admits a freshly generated real comparison bundle. **Those tests do not establish live bot-comment delivery.** Separate hosted external-consumer results and remaining external-fork obligations are recorded in [RA-04 progress](docs/qualification.md). Consumer installation still requires review of the default-branch publisher template and policy. No release tag is created here.
 
 GitHub references: [workflow_run privileges/default-branch behavior](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run), [workflow run API](https://docs.github.com/en/rest/actions/workflow-runs), and [PR issue-comment permissions](https://docs.github.com/en/rest/issues/comments#create-an-issue-comment).
 
