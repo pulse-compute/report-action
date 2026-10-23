@@ -74,3 +74,16 @@ test('binding rejects expired, ambiguous-name, digestless and unrelated artifact
     const x = structuredClone(f); mutate(x.artifact); assert.throws(() => validateArtifactBinding(x));
   }
 });
+
+test('comparison artifact names and binding use a distinct archive identity with a required adapter receipt', t => {
+  const f = fixture(t);
+  const identity = { ...f.identity, comparisonAdapter: 'internal-beta10-validation-only' };
+  assert.throws(() => sealBundle(f.root, identity, f.files), /adapter receipt/);
+  writeFileSync(join(f.root, 'receipt.json'), '{}');
+  f.manifest = sealBundle(f.root, identity, [...f.files, { role: 'compare-receipt', path: 'receipt.json' }]);
+  f.artifact.name = artifactName(f.manifest);
+  assert.ok(f.artifact.name.endsWith('-comparison'));
+  assert.equal(validateArtifactBinding(f).name, f.artifact.name);
+  const bad = structuredClone(f.manifest); bad.comparisonAdapter = 'automatic-fallback';
+  assert.throws(() => validateManifest(bad), /Unknown comparison adapter/);
+});

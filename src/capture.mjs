@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync, lstatSync, realpathSync, mkdirSync, copyFi
 import { resolve, relative, dirname, join, sep } from 'node:path';
 import { requireThat, revision, projectRoot, positiveInteger, sha256 } from './contracts.mjs';
 import { sealBundle, artifactName } from './evidence.mjs';
+import { sealBaseline, baselineArtifactName } from './baseline-evidence.mjs';
 
 const maxBytes = 64 * 1024 * 1024;
 export function contained(root, path) {
@@ -52,7 +53,11 @@ export function normalizeInputs(input = {}) {
   requireThat(typeof pulseVersion === 'string' && /^\d+\.\d+\.\d+(?:-[A-Za-z0-9.-]+)?$/.test(pulseVersion), 'Pin an exact Pulse CLI version');
   const setupCommand = input.setup_command ?? '', buildCommand = input.build_command ?? '';
   requireThat([setupCommand, buildCommand].every(c => typeof c === 'string' && c.length <= 8192 && !c.includes('\0')), 'Invalid setup/build command');
-  return { profiles, packageManager, installDirectory, pulseVersion, setupCommand, buildCommand };
+  const compareInternal = input.compare_internal_beta10 ?? false;
+  requireThat(typeof compareInternal === 'boolean', 'Comparison validation requires a boolean opt-in');
+  const baselineBranch = input.baseline_branch ?? '';
+  requireThat(typeof baselineBranch === 'string' && baselineBranch.length <= 256 && !/[\x00-\x20~^:?*\[\\]/.test(baselineBranch), 'Invalid approved baseline branch');
+  return { profiles, packageManager, installDirectory, pulseVersion, setupCommand, buildCommand, compareInternal, baselineBranch };
 }
 
 // The metadata is orchestration evidence, not a replacement for capsule
@@ -70,7 +75,7 @@ export function capture({ checkout, output, task, discovery, metadata, inputs = 
   try {
     revision(discovery.headRevision); revision(discovery.baselineRevision); revision(discovery.targetBaseRevision);
     revision(metadata.workflowRevision); revision(metadata.toolingRevision); positiveInteger(metadata.runId); positiveInteger(metadata.attempt);
-    requireThat(metadata.event === 'pull_request', 'Capture requires a pull_request event');
+    requireThat(['pull_request', 'push'].includes(metadata.event), 'Capture requires a pull_request or approved push event');
     requireThat(options.profiles.includes(task.profile), 'Task profile was not selected');
     requireThat(discovery.projects.some(p => p.id === task.id && p.root === task.root && p.status === task.status), 'Task differs from discovered project');
     requireThat(git(root, 'rev-parse', 'HEAD') === discovery.headRevision, 'Checkout is not the exact PR head');
@@ -119,19 +124,20 @@ export function capture({ checkout, output, task, discovery, metadata, inputs = 
     const htmlFile = contained(project, htmlName); safeBytes(htmlFile);
     writeFileSync(join(out, 'head.json'), report, { flag: 'wx' }); copyFileSync(htmlFile, join(out, 'head.html'));
     requireThat(sha256(safeBytes(lockPath)) === lockSha256 && git(root, 'status', '--porcelain', '--untracked-files=no') === '', 'Build changed tracked checkout or lock');
-    const execution = { packageManager: options.packageManager, packageManagerVersion, node: process.version,
-      setupSha256: sha256(options.setupCommand), buildSha256: sha256(options.buildCommand || 'pulse build [project] --profile [profile] --json'),
-      toolingRevision: metadata.toolingRevision, dependencyLifecycleScripts: false };
+    const execution = executionIdentity({ options, packageManagerVersion, packageBytes: safeBytes(packageFile), toolingRevision: metadata.toolingRevision });
     const executionSha256 = sha256(JSON.stringify(execution));
-    const manifest = sealBundle(out, { repository: metadata.repository, pullRequest: metadata.pullRequest,
+    const identity = { repository: metadata.repository, pullRequest: metadata.pullRequest,
       targetBaseRevision: discovery.targetBaseRevision, baselineRevision: discovery.baselineRevision, headRevision: discovery.headRevision,
       project: { root: task.root }, recipe: { profile: task.profile, provider, target: 'native', pulseVersion: cliPackage.version, lockSha256, executionSha256 },
       workflow: { path: metadata.workflowPath, revision: metadata.workflowRevision },
       run: { id: metadata.runId, attempt: metadata.attempt, event: metadata.event },
-      baseline: { status: 'unavailable', revision: discovery.baselineRevision, reason: task.status === 'added' ? 'new-project' : 'not-requested' } },
-    [{ role: 'head-json', path: 'head.json' }, { role: 'head-html', path: 'head.html' }]);
+      baseline: { status: 'unavailable', revision: discovery.baselineRevision, reason: task.status === 'added' ? 'new-project' : 'not-requested' } };
+    const files = [{ role: 'head-json', path: 'head.json' }, { role: 'head-html', path: 'head.html' }];
+    const manifest = metadata.event === 'push'
+      ? sealBaseline(out, { ...identity, workflow: { ...identity.workflow, id: metadata.workflowId }, branch: metadata.baselineBranch }, files)
+      : sealBundle(out, identity, files);
     writeFileSync(join(out, 'manifest.json'), json(manifest), { flag: 'wx' });
-    result.status = 'captured'; result.phase = 'complete'; result.artifactName = artifactName(manifest);
+    result.status = 'captured'; result.phase = 'complete'; result.artifactName = metadata.event === 'push' ? baselineArtifactName(manifest) : artifactName(manifest);
     result.recipe = manifest.recipe; result.execution = execution; result.toolingRevision = metadata.toolingRevision;
     result.files = manifest.files; result.baseline = manifest.baseline;
   } catch (error) {
@@ -146,4 +152,11 @@ export function capture({ checkout, output, task, discovery, metadata, inputs = 
     }
   }
   return finish();
+}
+
+export function executionIdentity({ options, packageManagerVersion, packageBytes, toolingRevision }) {
+  return { packageManager: options.packageManager, installDirectory: options.installDirectory, packageManagerVersion, node: process.version,
+    packageSha256: sha256(packageBytes), setupSha256: sha256(options.setupCommand),
+    buildSha256: sha256(options.buildCommand || 'pulse build [project] --profile [profile] --json'),
+    toolingRevision, dependencyLifecycleScripts: false };
 }

@@ -72,10 +72,10 @@ export function loadInternalComparison({ allowInternal = false } = {}) {
   requireThat(entry === join(cli, 'src/index.js') && contractEntry === join(roots.contracts, 'src/path.js'), 'Validation entrypoint differs');
   // All report files and the only non-builtin external dependency are checked
   // before requiring code. No project config or project dependencies are loaded.
-  const { parseCapsule } = local('./src/internal/report/capsule.js');
+  const { parseCapsule, createCapsule, serializeCapsule } = local('./src/internal/report/capsule.js');
   const { compareCapsules, serializeComparison, parseComparison } = local('./src/internal/report/comparison.js');
   const { renderComparison } = local('./src/internal/report/comparison-viewer.js');
-  return { parseCapsule, compareCapsules, serializeComparison, parseComparison, renderComparison, identity };
+  return { parseCapsule, createCapsule, serializeCapsule, compareCapsules, serializeComparison, parseComparison, renderComparison, identity };
 }
 
 export function compareForValidation({ before, after, output, allowInternal = false }) {

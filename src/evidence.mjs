@@ -4,14 +4,15 @@ import { requireThat, revision, safePath, projectRoot, positiveInteger, sha256, 
 
 const roles = new Map([
   ['head-json', '.json'], ['head-html', '.html'], ['base-json', '.json'],
-  ['base-html', '.html'], ['compare-json', '.json'], ['compare-html', '.html'],
+  ['base-html', '.html'], ['compare-json', '.json'], ['compare-html', '.html'], ['compare-receipt', '.json'],
 ]);
 const digest = value => requireThat(typeof value === 'string' && /^[a-f0-9]{64}$/.test(value), 'Invalid SHA-256 digest');
 const label = value => requireThat(typeof value === 'string' && value.length > 0 && value.length <= 256 && !/[\x00-\x1f\x7f]/.test(value), 'Invalid identity label');
-const recipeKey = recipe => JSON.stringify(['profile', 'provider', 'target', 'pulseVersion', 'lockSha256', 'executionSha256'].map(key => recipe[key] ?? null));
+export const recipeKey = recipe => JSON.stringify(['profile', 'provider', 'target', 'pulseVersion', 'lockSha256', 'executionSha256'].map(key => recipe[key] ?? null));
 
 export function validateManifest(m) {
   requireThat(m?.schemaVersion === 'pulse.report-action.evidence.v1', 'Unsupported evidence manifest');
+  if (m.comparisonAdapter !== undefined) requireThat(m.comparisonAdapter === 'internal-beta10-validation-only', 'Unknown comparison adapter');
   requireThat(typeof m.repository === 'string' && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(m.repository), 'Invalid repository');
   positiveInteger(m.pullRequest);
   revision(m.targetBaseRevision); revision(m.baselineRevision); revision(m.headRevision);
@@ -42,10 +43,11 @@ export function validateManifest(m) {
   if (m.baseline.status === 'available') {
     requireThat(['base-json', 'base-html', 'compare-json', 'compare-html'].every(role => found.has(role)), 'Available baseline requires full report and comparison evidence');
   } else requireThat([...found].every(role => role.startsWith('head-')), 'Unavailable baseline cannot claim comparison evidence');
+  if (m.baseline.status === 'available' && m.comparisonAdapter === 'internal-beta10-validation-only') requireThat(found.has('compare-receipt'), 'Internal comparison requires the pinned adapter receipt');
   return m;
 }
 
-function regularBytes(root, name) {
+export function regularBytes(root, name) {
   safePath(name);
   const base = realpathSync(root), file = resolve(base, name);
   // Reject symbolic links in every path component, including contained links.
@@ -104,5 +106,5 @@ export function validateArtifactBinding({ artifact, run, manifest, expected, now
 
 export function artifactName(manifest) {
   validateManifest(manifest);
-  return `pulse-report-${manifest.project.id}-${sha256(recipeKey(manifest.recipe)).slice(0, 16)}-${manifest.run.id}-${manifest.run.attempt}`;
+  return `pulse-report-${manifest.project.id}-${sha256(recipeKey(manifest.recipe)).slice(0, 16)}-${manifest.run.id}-${manifest.run.attempt}${manifest.comparisonAdapter ? '-comparison' : ''}`;
 }
