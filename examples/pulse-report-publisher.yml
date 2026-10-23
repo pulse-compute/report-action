@@ -1,0 +1,20 @@
+name: Publish Pulse evidence
+on:
+  workflow_run:
+    workflows: [Pulse reports] # The caller workflow name, not the reusable job name.
+    types: [completed]
+permissions:
+  contents: read
+  actions: read
+  pull-requests: write
+jobs:
+  publish:
+    # Install this file and its policy on the consumer default branch.
+    # Replace with a reviewed FULL SHA; never point the publisher at PR source.
+    uses: pulse-compute/report-action/.github/workflows/publish.yml@REVIEWED_FULL_COMMIT_SHA
+    with:
+      policy_path: .github/pulse-report-publisher.json
+      dry_run: false
+    # Same optional narrowly scoped private-tooling read token as the capture caller.
+    # secrets:
+    #   tooling_read_token: ${{ secrets.REPORT_ACTION_READ_TOKEN }}

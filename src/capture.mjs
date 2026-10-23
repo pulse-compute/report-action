@@ -26,7 +26,7 @@ function childEnvironment(extra = {}) {
   // GitHub action steps retain their own runtime tokens; project subprocesses
   // receive no GitHub/repository token from this wrapper.
   for (const name of Object.keys(env)) if (/TOKEN|SECRET|PASSWORD|CREDENTIAL|PRIVATE_KEY/i.test(name)
-    || ['NODE_OPTIONS', 'GITHUB_ENV', 'GITHUB_OUTPUT', 'GITHUB_STEP_SUMMARY', 'GITHUB_PATH'].includes(name)) delete env[name];
+    || ['NODE_OPTIONS', 'GITHUB_ENV', 'GITHUB_OUTPUT', 'GITHUB_STEP_SUMMARY', 'GITHUB_PATH', 'GITHUB_STATE'].includes(name)) delete env[name];
   return env;
 }
 export function execute(command, args, { cwd, env = {}, timeout = 12 * 60 * 1000 } = {}) {

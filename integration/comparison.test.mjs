@@ -10,6 +10,7 @@ import { compareProject } from '../src/comparison.mjs';
 import { baselineRecipe } from '../src/baseline.mjs';
 import { verifyBundle } from '../src/evidence.mjs';
 import { sealBaseline, verifyBaseline } from '../src/baseline-evidence.mjs';
+import { admitReport } from '../src/publisher-artifacts.mjs';
 import { sha256 } from '../src/contracts.mjs';
 
 test('real installed pair rebuilds the exact baseline, then reuses push evidence without rebuilding; missing baselines stay explicit', async t => {
@@ -37,6 +38,15 @@ test('real installed pair rebuilds the exact baseline, then reuses push evidence
   const output = join(temp, 'compared'), result = await compareProject({ checkout, tooling, stage, output, task, inputs });
   assert.equal(result.status, 'captured', JSON.stringify(result)); assert.equal(result.baselineSource.status, 'rebuilt'); assert.equal(result.baselineSource.revision, base);
   const manifest = verifyBundle(output, JSON.parse(readFileSync(join(output, 'manifest.json'))));
+  const producer = { id: metadata.runId, run_attempt: metadata.attempt, event: 'pull_request', status: 'completed', conclusion: 'success',
+    repository: { full_name: metadata.repository }, head_repository: { full_name: metadata.repository }, head_sha: head, path: metadata.workflowPath };
+  const evidence = { root: output, capture: result, entries: readdirSync(output).sort() };
+  const admitted = admitReport({ bundle: evidence, artifact: { id: 20, name: result.artifactName, digest: 'sha256:' + 'a'.repeat(64), expired: false,
+    expires_at: '2099-01-01', workflow_run: { id: producer.id, head_sha: head } }, run: producer, task,
+    expected: { repository: metadata.repository, headRepository: metadata.repository, pullRequest: 1, targetBaseRevision: base, baselineRevision: base,
+      headRevision: head, projectRoot: task.root, workflowPath: metadata.workflowPath, workflowRevision: head, runId: producer.id, attempt: producer.run_attempt,
+      recipe: headManifest.recipe, toolingRevision: metadata.toolingRevision }, comparison: true, now: Date.now() });
+  assert.deepEqual(admitted, manifest);
   assert.equal(manifest.baseline.status, 'available'); assert.equal(manifest.headRevision, head); assert.equal(manifest.baselineRevision, base); assert.equal(manifest.files.length, 7);
   assert.deepEqual(readFileSync(join(output, 'head.json')), originalHead);
   assert.equal(JSON.parse(readFileSync(join(output, 'base.json'))).provenance.revision, null);
