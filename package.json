@@ -1,0 +1,8 @@
+{
+  "name": "@pulse-compute/report-action",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": { "test": "node --test", "discover": "node src/discover.mjs" }
+}
