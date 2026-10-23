@@ -1,0 +1,291 @@
+{
+  "schemaVersion": "pulse.report-action.internal-compare-pin.v1",
+  "purpose": "validation-only",
+  "upstreamIssue": "https://github.com/pulse-compute/pulse/issues/503",
+  "packageVersion": "1.0.0-beta.10",
+  "sourceTag": "v1.0.0-beta.10",
+  "sourceRevision": "e69e4b6f1381a05bf0ee0b9b4c6385d2acefb20c",
+  "npmIntegrity": "sha512-GWeq1wofSSIFKnXG7yq+sO+3ZBN4ipPZnFLdpnnoVA4NEQtSzYkZ2GPjdOkiMMqAns2kOkXoM3sArrMARhCc0A==",
+  "files": [
+    {
+      "root": "cli",
+      "path": "package.json",
+      "sha256": "60d3e24769f49f528bd824c3c5bc9d742bdb8fb24d117d01239bd01e80691f0e"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/attribution.schema.json",
+      "sha256": "10de9a952a28faa52ea19905f134cc9798e74942c29e06260495bf396f326896"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/build.js",
+      "sha256": "41a150560aa9a543fb51057480b9e84ea1aa21300a0ed3b9efb90377414d6f24"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/capsule.d.ts",
+      "sha256": "ab936704372403b8ce4fc38f62587c13947e026e4d39b49af24905ea5fbf9508"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/capsule.js",
+      "sha256": "1655e4aa4dcff444342f3e130dd4a8662c349b91d9317172f747780485020f45"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/capsule.schema.json",
+      "sha256": "9f1b94caa600afd3dd4577e72528667487a7b74e5f6d8ac7bf3a64baa01e88cf"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/command.js",
+      "sha256": "bd22d2ecf46f9a574100228b0d3969eb64f3bcfd29f59a1d330f3cef410eea35"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/comparison-schema.js",
+      "sha256": "fdec8706921d278061086265c442ce7d662570d52fe2e9b40384423a118abcfa"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/comparison-viewer.d.ts",
+      "sha256": "c3153e3f08bc1f6aa2e83aa741ec3cf4656408cc678dc63ebf14563b97ce4d70"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/comparison-viewer.js",
+      "sha256": "56c43dbe3d10fd2ada6b1ba4a25622020f3ea239a97b2aa6d57537045063a643"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/comparison.d.ts",
+      "sha256": "e3eba9e567ebf635ca4720ffa38a67019ddf28f0edd92a3d1bacdcf7fd19c85b"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/comparison.js",
+      "sha256": "38dab9511bc2b91c2b07ab732b9acdde3689701da639aaa6d7d3b35421a4d113"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/comparison.schema.json",
+      "sha256": "70b63b8a7b4bf917ab98a67a7e10918043fedbf9979630844935485a659a03cb"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/completion.d.ts",
+      "sha256": "a2fec56eb548e8e1656a14ccad9f6de4d6da767d0d88092716feb0d8d87a908f"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/completion.js",
+      "sha256": "4fb71754baef6ad020025fa6220c1dcf6aa52af0faae7d710f663b04ba2dcf60"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/completion.schema.json",
+      "sha256": "008eb1fbb9dc99dc70dffed765254c82d8dcb359219e901b2d3e5cbdb0ebe094"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/computation.js",
+      "sha256": "f79220aea471e07f55e442b348737d9b0bfdd7ce4765c58dbfd1dd38a998c9d9"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/data.js",
+      "sha256": "06841cbd7718694702ae9dedd227ccb8066f567bdc3d1b5e1a1af0129989c954"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/encoding.js",
+      "sha256": "a2c4c31f48bcb4e8d047cd95a86443a5991031b8e9991692407596d851bd809d"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/files.js",
+      "sha256": "45a8d493bd0e95aaac88c368c4f8c87ac639337b3a0860416b4f8bf75fa032a1"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/graph-diagnostic.js",
+      "sha256": "0034dfd9bb0696ae6b8fa7ab68cecf1c42ef5c9e1812438f6beaa396f7d66a63"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/handler-associations.js",
+      "sha256": "4d4380f84b8d356193b016c25b9fe7e3d17e4a72f0f4454148e7f3b1e0a18945"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/handler-topology.js",
+      "sha256": "cbd605955113d4fe662a13da71ef67576a18d606d057ddb1cfd6119851d67446"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/implementations.js",
+      "sha256": "94f7a56f89a4aad607a3b774b624b20357c97ca19eea9fb683d0aa405385ba5f"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/inventory.js",
+      "sha256": "14b354ff5bb4eea8914914848ae280769deb881d939ed685f090d11c68248954"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/model.d.ts",
+      "sha256": "172ae564bb9d1ea1c4f6b649ecd317cec2194ce3be472486b3d462ad679b8acc"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/output-receipts.js",
+      "sha256": "a6f7ff6a3632b7e10a05ba386b6e17ef67ed622aeb8aa509db125a1086cf9062"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/output.js",
+      "sha256": "b95b13bea808fff2a937cd2103073f34e059d946bdb0018e9e525791931cc053"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/reference-provenance.js",
+      "sha256": "af563fdcf97354dc87ad45bdcdac99580196dddc86be9b2107420c682da46a05"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/relationship-queries.js",
+      "sha256": "fc14a4174186ababff86dda8350311d2afad94e8897ca664cdba3ac611799734"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/resource-bytes.js",
+      "sha256": "4402293aca954e228c593897db7f7b0dfd385a3100e6cb09104b14d3ebf89a77"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/resource-inventory.js",
+      "sha256": "b840840b99511b6fa86dca74492fb29f718203f6b25fa8e04fa7db6a743862d9"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/retained.d.ts",
+      "sha256": "3fa004e37848f4652aabfe910f23b5cf6d3579ae43e01dbe938504e32d6d114d"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/retained.js",
+      "sha256": "f0728d3247d267c3e4f4731662d17b2608c3b5f1649ecc70444f8af8e552207d"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/schema-projection.d.ts",
+      "sha256": "2dc94199996b9d9614cbb305d31539a6440782406c02cfb3042dba9b4991ab88"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/schema-projection.js",
+      "sha256": "32729663fc1215dbc823156413f53a5521868583bafb552cbf26514dcca3b52f"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/schema.js",
+      "sha256": "4a20264c52b0c9c7794f9d97bbcf3e22cc5c7e047fe066b8bd3396e24af3c8d2"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/semantic-comparison.js",
+      "sha256": "2a46637d9b76f55c1faf2f6120e4d568f767b5e6afcfcd53da8ddcbee3cdf3e2"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/size.js",
+      "sha256": "79ef066abf409776af43884f47d8d18633df3d3b5dd3785197c8bbe1d336b08a"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/snapshot.js",
+      "sha256": "114e8e92ba075a88a0eafcadaa8aafcd73ecef6d924cc499ec0c383c8620cc64"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/source-inputs.js",
+      "sha256": "b629d87030c5f052ae6f7c9c6ab8d6da8843ebed4b11853733ef1c89ec544d73"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/validate.js",
+      "sha256": "cc2cbaa28e5c0b39691eefdaeb680e3f1617ce74d3335caeac6cd90a55f0868a"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/viewer/atlas.css",
+      "sha256": "2b58d1acca2cbbfde370b963b834af8d9d631607704fd0c56413759b6967ba15"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/viewer/atlas.js",
+      "sha256": "9ef268016f162d664f231abcdc9e9aed72693a48cca0e3276fc03fdf4b48c747"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/viewer/binding-explorer.js",
+      "sha256": "c2a3df88419ce2c5e46543c977395f5b22a92c4d4e033d3b7a61004996ebcf4f"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/viewer/comparison.css",
+      "sha256": "ed41169a535cf257b8896c2d01375eda15e8402b6226622346204904feabaaa3"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/viewer/comparison.js",
+      "sha256": "183d9f7ac4157ff879985dd163ec977eaab7e5398f2ca66526abe398db23fe0c"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/viewer/inventories.js",
+      "sha256": "5cca07b014162d55711b5dc40dd29dda3a5a6aa13c7416dfd2ac939d2753e121"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/viewer/model.js",
+      "sha256": "fbab153c5e9934fb77e62e68bf0940bbaac670b530a357f7dd22a1b2a36e1893"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/viewer/sha256.js",
+      "sha256": "57df40bc02b8ea025e1115315bdb6cae34ac8fe3bb8ea28671dc54ff262e720f"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/viewer/shell.html",
+      "sha256": "aaebbe75a35fd5dfb5fcfee2bce81682f15afe6424744e818b6fda9ebf21ab01"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/viewer/viewer.css",
+      "sha256": "03aa09220b58280470fa9062b17473f9b5c12ffebf016bd8853e3dda037afd1d"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/viewer/viewer.js",
+      "sha256": "cebef7efa3906a27268be49eed581e921a3fbf94127e1b8c741bc1fab5660294"
+    },
+    {
+      "root": "cli",
+      "path": "src/internal/report/viewer.js",
+      "sha256": "86f5afe7d58b59d86fa9e6aa799e976f8c0cbe76218bad2bb765826080763a1d"
+    },
+    {
+      "root": "contracts",
+      "path": "package.json",
+      "sha256": "188efa31d3ba04cf3158718fe36519abab022a6082133419d6ded27a525f063b"
+    },
+    {
+      "root": "contracts",
+      "path": "src/path.js",
+      "sha256": "a3f68ffaf7e1cd7a88b062bb006682454e6292298c9f3474879971a612ba8553"
+    }
+  ]
+}

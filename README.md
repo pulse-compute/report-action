@@ -22,7 +22,28 @@ The repository is currently private. Cross-repository reuse requires the reposit
 | [RA-03 / #4](https://github.com/pulse-compute/report-action/issues/4) | Verified PR comment publisher, including forks | RA-01/02 |
 | [RA-04 / #5](https://github.com/pulse-compute/report-action/issues/5) | Real consumer qualification and first release | RA-01/02/03 |
 
-Pulse owns the public comparison defect in [pulse#503](https://github.com/pulse-compute/pulse/issues/503). Its existing shared comparison engine and HTML renderer must be used through a supported public entry point. This action will not duplicate matching/arithmetic or import private package paths. Beta.10 supports report capture, but does not expose the proposed `pulse compare` command. The compare CLI syntax in that issue is a proposal, not an available command.
+Pulse owns the public comparison defect in [pulse#503](https://github.com/pulse-compute/pulse/issues/503). Its existing shared comparison engine and HTML renderer will be consumed through a supported public entry point for release. Beta.10 does not expose the proposed `pulse compare` command. The compare CLI syntax in that issue is a proposal, not an available command.
+
+The owner explicitly authorized a temporary internal shim **for validation**, described below. It does not duplicate matching/arithmetic and does not turn the internal modules into public exports. RA-02 validation can proceed before #503 is released; consumer release still requires its supported replacement.
+
+## Temporary comparison validation
+
+`src/compare-validation.mjs` bridges the exact published `@pulse-compute/cli@1.0.0-beta.10` internals while #503 awaits release. Use requires an explicit validation opt-in:
+
+```bash
+npm ci --prefix validation --ignore-scripts --no-audit --no-fund
+npm run test:shim
+mkdir -p validation/.output
+npm run validate:compare -- --allow-internal-beta10 validation/fixtures/before.json validation/fixtures/after.json validation/.output/example
+```
+
+The output directory must be new. The shim writes `compare.json`, self-contained `compare.html`, and `compare-shim-receipt.json`. The receipt records the validation-only adapter, reviewed pin digest, package version, upstream issue, original input byte hashes, capsule/comparison hashes, compatibility and generated file hashes. It does not claim a fresh application build or verified Git lineage.
+
+The isolated `validation/package-lock.json` pins the registry dependency closure and npm integrity. Before importing code, the loader verifies package names/versions and 56 package/report/dependency files against `validation/internal-compare-pin.json`, including the entire report inventory and the contracts path module used by it. Missing/changed/extra report files, changed entrypoints, package versions, digest mismatches or symlink paths fail. It resolves packages only from the isolated validation installation. It never loads application configuration or automatically falls back to another version/adapter.
+
+Six installed-package validation tests cover real retained capsules, identical-input control, malformed/tampered data, changed package/code/inventory, unsafe paths, opt-in and unchanged input bytes. [Fixture provenance](validation/fixtures/README.md) distinguishes retained beta.9/beta.10 example evidence from a newly built PR pair. CI separately installs with lifecycle scripts disabled, runs these tests and retains a comparison/receipt bundle for 14 days. HTML is a download, not a hosted viewer.
+
+Removal condition: when a released installed CLI supports #503, replace this adapter with the public command and rerun the same fixture assertions. Delete the internal loader, pins and isolated validation dependency installation once equivalent public-command validation passes. Do not silently repin the internal shim to a newer Pulse release or enable it as a production fallback.
 
 ## Discovery contract
 
@@ -76,13 +97,13 @@ Use the PR merge-base as the default baseline. Reuse only evidence for that exac
 
 ## Development
 
-No npm dependencies or installation step are needed:
+The core foundation needs no npm dependencies or installation step:
 
 ```bash
 npm test
 ```
 
-Tests use real temporary Git repositories and output files. Coverage includes merge-base behavior, shared/nested/renamed/deleted projects, path safety, baseline absence, byte tampering, fork/run identity, stale attempts, expired artifacts and recipe mismatches. CI runs the same tests on pinned Node 24.18.0 with SHA-pinned checkout/setup actions.
+Core tests use real temporary Git repositories and output files. Coverage includes merge-base behavior, shared/nested/renamed/deleted projects, path safety, baseline absence, byte tampering, fork/run identity, stale attempts, expired artifacts and recipe mismatches. CI runs the same tests on pinned Node 24.18.0 with SHA-pinned checkout/setup actions. The opted-in comparison validation has its own isolated dependencies and job, as described above.
 
 ## References
 

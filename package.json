@@ -4,5 +4,10 @@
   "private": true,
   "type": "module",
   "engines": { "node": ">=24" },
-  "scripts": { "test": "node --test", "discover": "node src/discover.mjs" }
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "test:shim": "node --test validation/test/*.test.mjs",
+    "validate:compare": "node src/compare-validation.mjs",
+    "discover": "node src/discover.mjs"
+  }
 }
