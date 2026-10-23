@@ -21,7 +21,7 @@ test('project subprocesses receive neither repository tokens nor GitHub file-com
 });
 test('summary distinguishes missing/failed/skipped evidence and escapes project Markdown', () => {
   const plan = { discovery: { headRevision: '1'.repeat(40), baselineRevision: '2'.repeat(40) },
-    metadata: { repository: 'owner/repo', runId: 1, attempt: 1 },
+    metadata: { repository: 'owner/repo', runId: 1, attempt: 1, toolingRepository: 'owner/tooling', toolingRevision: 'a'.repeat(40) },
     tasks: [{ root: 'app|[link]', profile: 'ci' }, { root: 'removed', profile: 'ci' }, { root: 'failed', profile: 'ci' }] };
   const captures = ['removed', 'failed'].map((project, i) => ({ project, profile: 'ci', runId: 1, attempt: 1,
     headRevision: plan.discovery.headRevision, status: i ? 'failed' : 'skipped', reason: i ? null : 'project-removed',
@@ -32,7 +32,7 @@ test('summary distinguishes missing/failed/skipped evidence and escapes project 
 });
 test('summary names root and nested projects while matching evidence by full path', () => {
   const plan = { discovery: { headRevision: '1'.repeat(40), baselineRevision: '2'.repeat(40) },
-    metadata: { repository: 'owner/storefront', runId: 1, attempt: 1 },
+    metadata: { repository: 'owner/storefront', runId: 1, attempt: 1, toolingRepository: 'owner/tooling', toolingRevision: 'a'.repeat(40) },
     tasks: ['.', 'apps/payments', 'services/payments'].map(root => ({ root, profile: 'ci' })) };
   const captures = [{ project: 'services/payments', profile: 'ci', runId: 1, attempt: 1,
     headRevision: plan.discovery.headRevision, status: 'failed', failureCode: 'REPORT_ACTION_BUILD_FAILED' }];
@@ -41,4 +41,5 @@ test('summary names root and nested projects while matching evidence by full pat
   assert.match(text, /\| payments \| ci \| missing \|/);
   assert.match(text, /\| payments \| ci \| failed \| REPORT_ACTION_BUILD_FAILED/);
   assert.ok(!text.includes('| apps/payments |'));
+  assert.ok(text.endsWith(`Documentation and troubleshooting: [report-action](https://github.com/owner/tooling/tree/${'a'.repeat(40)}) — version status unavailable.\n`));
 });

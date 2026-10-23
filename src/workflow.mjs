@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { discover, configurations } from './discover.mjs';
 import { capture, normalizeInputs, execute } from './capture.mjs';
 import { requireThat, revision, positiveInteger, sha256, projectId, projectLabel } from './contracts.mjs';
+import { documentationLink, documentationFooter } from './documentation.mjs';
 
 const output = (name, value) => {
   const text = typeof value === 'string' ? value : JSON.stringify(value);
@@ -45,7 +46,7 @@ export function prepare({ checkout, tooling, stage, inputs, event, context }) {
   const plan = { schemaVersion: 'pulse.report-action.capture-plan.v1', discovery, tasks, metadata, comparisonRequested: options.compareInternal && !push,
     inputsSha256: sha256(JSON.stringify(options)) };
   mkdirSync(join(stage, 'src'), { recursive: true });
-  for (const name of ['contracts.mjs', 'discover.mjs', 'evidence.mjs', 'capture.mjs', 'workflow.mjs', 'baseline-evidence.mjs', 'baseline.mjs', 'comparison.mjs', 'extract-reports.py', 'presentation.mjs']) copyFileSync(join(tooling, 'src', name), join(stage, 'src', name));
+  for (const name of ['contracts.mjs', 'discover.mjs', 'evidence.mjs', 'capture.mjs', 'workflow.mjs', 'baseline-evidence.mjs', 'baseline.mjs', 'comparison.mjs', 'extract-reports.py', 'presentation.mjs', 'documentation.mjs']) copyFileSync(join(tooling, 'src', name), join(stage, 'src', name));
   if (options.compareInternal) {
     copyFileSync(join(tooling, 'src/compare-validation.mjs'), join(stage, 'src/compare-validation.mjs'));
     mkdirSync(join(stage, 'validation'));
@@ -55,9 +56,9 @@ export function prepare({ checkout, tooling, stage, inputs, event, context }) {
   return plan;
 }
 
-export function summarize({ plan, captures }) {
+export function summarize({ plan, captures, documentation = documentationLink({ repository: plan.metadata.toolingRepository, sha: plan.metadata.toolingRevision }) }) {
   let text = `## Pulse report evidence\n\nHead: \`${plan.discovery.headRevision}\`\n\nBaseline revision: \`${plan.discovery.baselineRevision}\`.\n\n`;
-  if (!plan.tasks.length) return text + 'No affected Pulse projects; no installation or build ran.\n';
+  if (!plan.tasks.length) return text + `No affected Pulse projects; no installation or build ran.\n\n${documentation}\n`;
   text += '| Project | Profile | Status | Detail | Report | Compare | Evidence |\n| --- | --- | --- | --- | --- | --- | --- |\n';
   for (const task of plan.tasks) {
     const matches = captures.filter(c => c.project === task.root && c.profile === task.profile
@@ -68,7 +69,7 @@ export function summarize({ plan, captures }) {
     const head = matches.find(m => m.comparison !== true);
     text += `| ${escaped(projectLabel(task.root, plan.metadata.repository))} | ${escaped(task.profile)} | ${escaped(c?.status ?? 'missing')} | ${escaped(c?.failureCode ?? c?.compatibility ?? c?.reason ?? (c ? 'Native report; baseline unavailable' : 'No matching terminal capture'))} | ${link(head?.upload?.views?.report?.artifactId, 'report.html')} | ${link(c?.upload?.views?.compare?.artifactId, 'compare.html')} | ${link(c?.upload?.artifactId, 'evidence.zip')} |\n`;
   }
-  return text + '\nDownload the named artifacts from this run. Artifacts require GitHub sign-in and expire with retention. Comparison artifacts are validation-only when opted in. PR comments require the separately installed publisher. No provider qualification is claimed.\n';
+  return text + `\n${documentation}\n`;
 }
 
 async function main() {
@@ -127,7 +128,9 @@ async function main() {
         }
       }
     }
-    scan(e.REPORT_CAPTURES); summary(summarize({ plan, captures }));
+    scan(e.REPORT_CAPTURES);
+    const documentation = await documentationFooter({ repository: plan.metadata.toolingRepository, sha: plan.metadata.toolingRevision });
+    summary(summarize({ plan, captures, documentation }));
   } else throw new Error('Expected prepare, capture or summary');
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

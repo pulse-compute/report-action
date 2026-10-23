@@ -14,6 +14,7 @@ import { execute } from '../src/capture.mjs';
 import { sha256 } from '../src/contracts.mjs';
 import { publisherClient } from '../src/github.mjs';
 import { presentationName } from '../src/presentation.mjs';
+import { documentationFooter } from '../src/documentation.mjs';
 
 const sha = digit => digit.repeat(40), now = Date.parse('2026-10-23T05:00:00Z');
 const bot = { id: 41898282, login: 'github-actions[bot]', type: 'Bot' };
@@ -120,6 +121,7 @@ async function harness(t, { fork = false, comparison = false, root = 'apps/app',
     return upload(dir, name, extraEntries);
   }
   const args = { api, repository, policy, event: { action: 'completed', repository: { full_name: repository }, workflow_run: { id: run.id, run_attempt: run.run_attempt, event: 'pull_request' } },
+    documentation: args => documentationFooter({ ...args, request: async () => Response.json({ status: 'ahead', ahead_by: 3, behind_by: 0 }) }),
     context: { eventName: 'workflow_run', ref: 'refs/heads/main' }, stage: join(temp, 'stage'), now: () => now };
   async function invoke(overrides = {}) { return publish({ ...args, stage: join(temp, 'stage-' + serial++), ...overrides }); }
   return { temp, api, args, invoke, state, task, expected, snapshot, run, pr, policy, bundle, upload, view, archives, artifacts, mutations, calls, comments };
@@ -129,14 +131,14 @@ test('same-repository and fork PRs use authenticated commit association and GitH
   for (const fork of [false, true]) {
     const f = await harness(t, { fork }); const a = f.bundle(); const result = await f.invoke();
     assert.equal(result.status, 'created'); assert.equal(f.mutations.length, 1); assert.match(result.body, new RegExp(`/artifacts/${a.id}\\)`));
-    assert.match(result.body, /sign-in/); assert.match(result.body, /baseline unavailable: not-requested/);
+    assert.match(result.body, /Documentation and troubleshooting:/); assert.match(result.body, /baseline unavailable: not-requested/);
     assert.equal(f.run.pull_requests.length, 0); // No artifact PR-number routing.
   }
 });
 test('matching bot-owned comment is updated; human/other-bot markers are never overwritten; repeated identical result is a no-op', async t => {
   const f = await harness(t); f.bundle(); const preview = await f.invoke({ dryRun: true });
   assert.equal(f.mutations.length, 0);
-  f.comments.push({ id: 88, user: bot, body: preview.body.replace('sign-in', 'old-sign-in') }, { id: 89, user: { id: 1, login: 'person', type: 'User' }, body: marker });
+  f.comments.push({ id: 88, user: bot, body: preview.body.replace('3 commits behind main', '2 commits behind main') }, { id: 89, user: { id: 1, login: 'person', type: 'User' }, body: marker });
   assert.equal((await f.invoke()).status, 'updated'); assert.equal(f.mutations[0].method, 'PATCH'); assert.equal(f.mutations[0].path, '/issues/comments/88');
   f.comments[0].body = preview.body; assert.equal((await f.invoke()).status, 'unchanged'); assert.equal(f.mutations.length, 1);
 });
@@ -208,8 +210,17 @@ test('published project names use the repository at root and the immediate conta
   for (const [root, label] of [['.', 'repo'], ['apps/payments', 'payments']]) {
     const f = await harness(t, { root }); f.bundle(); const r = await f.invoke();
     assert.ok(r.body.includes(`| ${label} | ci |`));
+    assert.ok(r.body.endsWith(`Documentation and troubleshooting: [report-action](https://github.com/owner/tooling/tree/${sha('5')}) — 3 commits behind main.\n`));
+    assert.ok(!r.body.includes('HTML links download standalone files'));
     assert.equal(f.task.root, root);
   }
+});
+test('unavailable optional version metadata does not prevent verified publication', async t => {
+  const f = await harness(t); f.bundle();
+  const result = await f.invoke({ documentation: args => documentationFooter({ ...args, request: async () => { throw new Error('unavailable'); } }) });
+  assert.equal(result.status, 'created');
+  assert.ok(result.body.endsWith(' — version status unavailable.\n'));
+  assert.ok(result.body.includes(`/tree/${sha('5')}`));
 });
 test('publisher context, workflow ID, source repository and test-merge parent identity fail closed', async t => {
   const f = await harness(t); f.bundle();
