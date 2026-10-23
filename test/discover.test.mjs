@@ -43,6 +43,11 @@ test('nested project source changes select its containing parent too', t => {
   f.put('nested/source.ts', 'change'); const head = f.commit();
   assert.deepEqual(discover({ ...f, base, head }).projects.map(p => p.root), ['.', 'nested']);
 });
+test('a root project does not hide shared lock changes from nested projects', t => {
+  const f = fixture(t); f.put('.pulse/config.ts'); f.put('nested/.pulse/config.ts'); const base = f.commit();
+  f.put('package-lock.json', '{}'); const head = f.commit();
+  assert.deepEqual(discover({ ...f, base, head }).projects.map(p => p.root), ['.', 'nested']);
+});
 test('uses merge-base rather than unrelated new base-branch changes', t => {
   const f = fixture(t); f.put('a/.pulse/config.ts'); f.put('b/.pulse/config.ts'); const ancestor = f.commit();
   f.git('checkout', '-qb', 'pr'); f.put('a/source.ts', 'PR'); const head = f.commit();

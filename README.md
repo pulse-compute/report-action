@@ -2,15 +2,59 @@
 
 Reusable GitHub automation for Pulse report and comparison evidence on pull requests.
 
-**Status: foundation implemented; consumer workflow and PR publishing are not yet implemented or released.** Do not install a `@v1` action yet. No release tag exists. This repository currently provides tested project discovery and evidence-binding primitives, plus the implementation queue below.
+**Status: Native report capture is implemented; baseline comparison integration and PR publishing remain in progress.** No `@v1` release tag exists. Use a reviewed commit SHA for validation. RA-01 provides a reusable workflow, public installed-CLI capture, per-project artifacts and a run summary; it does not post a PR comment yet.
 
 ## Intended consumer experience
 
-Install a small caller workflow, pin the central reusable workflow by reviewed SHA, and select the repository's package setup and Pulse profiles. A lightweight discovery job runs on PR updates; builds run only when relevant changes exist. Each affected project receives downloadable report HTML and comparison HTML, authoritative JSON, and an identity manifest. One maintained PR comment links the retained artifacts.
+Install a small caller workflow, pin the central reusable workflow by reviewed SHA, and select the repository's package setup and Pulse profiles. A lightweight discovery job runs on PR updates; builds run only when relevant changes exist. The planned complete integration supplies downloadable report/comparison HTML and JSON with one maintained PR comment. The current capture workflow supplies head report HTML/JSON, artifact identity and a run summary.
 
 Initial scope is Native build evidence and offline downloads. GitHub artifacts require sign-in and expire according to retention. Interactive public hosting, deployment, runtime/provider qualification and permanent archival are outside the first release.
 
-The repository is currently private. Cross-repository reuse requires the repository owner's GitHub Actions access configuration for permitted consumers, or a separately approved visibility change. Creating this repository does not configure that access.
+The repository is currently private. Cross-repository reuse requires the repository owner's GitHub Actions access configuration for permitted consumers, or a separately approved visibility change. Its explicit source checkout can additionally require a read-only `tooling_read_token` for this repository. That token is used only in discovery and is never passed to capture jobs. Same-repo use and public-tooling use need no additional token. Creating this repository does not configure that access.
+
+## Native report capture
+
+Copy [examples/pulse-reports.yml](examples/pulse-reports.yml) to the consumer's `.github/workflows/pulse-reports.yml`, replace `REVIEWED_FULL_COMMIT_SHA` with a reviewed report-action SHA, and select the explicit profiles and dependency installation root. Do not filter the trigger to `.pulse/**`: ordinary source and shared dependencies are build inputs too. The workflow supports `pull_request` events on GitHub.com and uses `job.workflow_sha` to obtain its own exact source. GitHub Enterprise Server is not yet supported.
+
+| Input | Default / contract |
+| --- | --- |
+| `profiles` | JSON array, default `["local"]`; 1–8 distinct explicit names |
+| `install_directory` | `.`; repository-relative package/lock root containing the selected projects |
+| `package_manager` | `npm` or `pnpm`; no floating auto-detection |
+| `pulse_version` | `1.0.0-beta.10`; must match the consumer's installed exact CLI version |
+| `setup_command` | Empty; optional non-secret setup after install |
+| `build_command` | Empty uses public `pulse build --json`; override must emit one matching completed build JSON object |
+
+Declare the CLI and app dependencies in the consumer lockfile first. npm uses `npm ci --ignore-scripts`; pnpm uses `install --frozen-lockfile --ignore-scripts` with an exact `pnpm@x.y.z` packageManager field. No implicit Pulse CLI installation or version fallback occurs. Node is pinned to 24.18.0. Native provider selection comes from each profile's public build plan and is checked against the completed build and report. JavaScript profiles are explicitly skipped before building a Native report.
+
+Optional commands run in the installation root with `PULSE_PROJECT`, `PULSE_PROFILE` and `PULSE_CLI` environment variables. For example:
+
+```yaml
+with:
+  profiles: '["ci"]'
+  install_directory: apps
+  setup_command: npm run generate
+  build_command: node "$PULSE_CLI" build "$PULSE_PROJECT" --profile "$PULSE_PROFILE" --json
+```
+
+Commands must not contain secrets or print extra stdout around the single build JSON object. Raw command output and command bodies are not retained in artifacts. A command returning an execution plan or exiting successfully without a completed matching build does not count as a successful capture. Capture rejects tracked-source or lockfile mutation; generators must write ignored disposable outputs. Timeouts and Native-only limitations remain explicit.
+
+Discovery runs in a separate job without executing project code. It stages only this workflow's exact tooling and a plan; capture jobs receive no repository secrets or comment-write token. Project subprocesses additionally omit token/credential and GitHub file-command environment variables. This is a permissions boundary, not a sandbox guarantee for arbitrary application/build code; PR-produced reports remain untrusted evidence for the future publisher to admit.
+
+The matrix is bounded to 256 project/profile entries, two concurrent captures, 45 minutes per capture job and 12 minutes per subprocess. No affected projects means no install/build. Removed projects produce a skip status without dependency resolution. Missing/failed captures do not turn the workflow green or become reports.
+
+Each successful artifact contains only `head.json`, `head.html`, `manifest.json` and `capture.json`. A failed/skipped capture contains status only, with phase, exit class and a stable diagnostic/failure code rather than raw logs or source values. Head report capsule provenance is unchanged. Baseline status is explicitly `not-requested` (or `new-project`); RA-02 owns baseline selection and compare integration.
+
+After upload, a separate small binding receipt records the GitHub artifact ID and archive digest; these cannot be embedded in the archive they identify. The summary uses those IDs to link downloadable artifacts and lists missing terminal captures. Artifact names include recipe/run/attempt identity. Captures and bindings are retained for 30 days; the same-run tooling plan for 14 days. No automatic PR comment, live hosting, deployment or runtime qualification is performed.
+
+Local validation:
+
+```bash
+npm test
+npm run test:capture
+```
+
+`test:capture` creates isolated temporary consumer Git repositories and installs real beta.10 packages with scripts disabled. It covers root/nested reports, failure/status handling, plan-only rejection, JavaScript skip, no-op selection and removed projects. The self-caller in CI additionally exercises the actual reusable workflow and GitHub artifact handoff; separate external consumers/fork publishing remain RA-04/RA-03 qualification. npm capture is exercised now; the pnpm path remains a separate consumer-matrix obligation in RA-04.
 
 ## Implementation queue
 
@@ -74,12 +118,12 @@ This prints `pulse.report-action.discovery.v1` JSON. It does not build or contac
 | Repository / PR | Consumer repository and PR number |
 | Revisions | Target base, merge-base baseline and PR head, each a full SHA |
 | Project | Relative root plus a path-derived stable ID |
-| Recipe | Profile, provider, Native target, exact Pulse version and lock SHA-256 |
+| Recipe | Profile, provider, Native target, exact Pulse version, lock SHA-256 and execution fingerprint |
 | Workflow / run | Workflow path and source revision; run ID, attempt and event |
 | Baseline | Available, or unavailable with a bounded reason |
 | Files | Explicit role, relative path, byte count and SHA-256 |
 
-Available baselines require all six files: head/base report JSON + HTML and comparison JSON + HTML. An unavailable baseline requires head JSON + HTML and a reason; it cannot claim comparison files. Failed head builds will have separate capture status/log handling in RA-01, not a fabricated successful evidence manifest.
+Available baselines require all six files: head/base report JSON + HTML and comparison JSON + HTML. An unavailable baseline requires head JSON + HTML and a reason; it cannot claim comparison files. RA-01 uses `not-requested` until baseline integration exists. Failed head builds have separate bounded capture statuses, not fabricated successful evidence manifests. `capture.json` records Node/package-manager versions, lifecycle policy, setup/build hashes and tooling revision bound by the execution fingerprint.
 
 `sealBundle` hashes only named output files; it rejects symlink traversal and nonregular/oversized files. `verifyBundle` rereads and verifies every listed file. The future uploader must stage only this named inventory plus the manifest, never upload the source checkout or `.pulse/` wholesale.
 

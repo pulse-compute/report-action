@@ -1,0 +1,18 @@
+name: Pulse reports
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  reports:
+    # Replace this placeholder with the full reviewed report-action commit SHA.
+    uses: pulse-compute/report-action/.github/workflows/reports.yml@REVIEWED_FULL_COMMIT_SHA
+    with:
+      profiles: '["local"]'
+      package_manager: npm
+      install_directory: '.'
+      pulse_version: 1.0.0-beta.10
+    # Private cross-repository use may need a report-action contents:read token.
+    # It is used only in discovery, never passed to capture/project execution.
+    # secrets:
+    #   tooling_read_token: ${{ secrets.REPORT_ACTION_READ_TOKEN }}
