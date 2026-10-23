@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sealBaseline, baselineArtifactName, validateBaselineBinding, selectBaseline, verifyBaseline } from '../src/baseline-evidence.mjs';
 import { recoverRetained, downloadReports, githubClient } from '../src/baseline.mjs';
-import { execute } from '../src/capture.mjs';
+import { execute, executionIdentity, normalizeInputs } from '../src/capture.mjs';
 import { sha256 } from '../src/contracts.mjs';
 const revision = 'a'.repeat(40), now = Date.parse('2026-10-23T00:00:00Z');
 function fixture(t) {
@@ -77,4 +77,11 @@ test('signed archive redirect never receives the GitHub token', async () => {
   });
   assert.equal((await api.archive(20)).toString(), 'archive'); assert.equal(calls[1].options.headers, undefined);
   assert.match(calls[0].options.headers.Authorization, /private-token/);
+});
+
+test('execution identity binds install root as well as package manifest and toolchain', () => {
+  const input = { options: normalizeInputs(), packageManagerVersion: '11.12.0', packageBytes: Buffer.from('{}'), toolingRevision: revision };
+  const original = executionIdentity(input);
+  const other = executionIdentity({ ...input, options: normalizeInputs({ install_directory: 'apps' }) });
+  assert.notEqual(sha256(JSON.stringify(original)), sha256(JSON.stringify(other)));
 });

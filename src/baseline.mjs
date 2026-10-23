@@ -90,7 +90,9 @@ export async function lookup({ api, checkout, tooling, stage, bindingDirectory, 
   requireThat(plan.tasks.some(t => ['id', 'root', 'status', 'profile', 'reason'].every(k => t[k] === task[k])), 'Comparison task differs');
   requireThat(execute('git', ['rev-parse', 'HEAD'], { cwd: checkout }).trim() === plan.discovery.baselineRevision, 'Baseline checkout differs');
   mkdirSync(stage);
-  const binding = JSON.parse(regularBytes(bindingDirectory, 'binding.json'));
+  const bindingBytes = regularBytes(bindingDirectory, 'binding.json');
+  requireThat(bindingBytes.length <= 32768, 'Oversized head binding');
+  const binding = JSON.parse(bindingBytes);
   requireThat(binding.schemaVersion === 'pulse.report-action.upload-binding.v1' && binding.capture?.project === task.root
     && binding.capture.profile === task.profile && binding.capture.headRevision === plan.discovery.headRevision
     && binding.capture.runId === plan.metadata.runId && binding.capture.attempt === plan.metadata.attempt

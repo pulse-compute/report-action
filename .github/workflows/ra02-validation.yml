@@ -9,7 +9,7 @@ permissions:
   actions: read
 jobs:
   reports:
-    uses: pulse-compute/report-action/.github/workflows/reports.yml@3448c219165d63cf1f715eaff907d9bab7719d68
+    uses: pulse-compute/report-action/.github/workflows/reports.yml@38bb037d61ccd9e5687fe278045b6766b711c2af
     with:
       profiles: '["ci"]'
       install_directory: fixtures/consumer
