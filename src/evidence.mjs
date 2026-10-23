@@ -12,6 +12,7 @@ export const recipeKey = recipe => JSON.stringify(['profile', 'provider', 'targe
 
 export function validateManifest(m) {
   requireThat(m?.schemaVersion === 'pulse.report-action.evidence.v1', 'Unsupported evidence manifest');
+  if (m.comparisonAdapter !== undefined) requireThat(m.comparisonAdapter === 'internal-beta10-validation-only', 'Unknown comparison adapter');
   requireThat(typeof m.repository === 'string' && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(m.repository), 'Invalid repository');
   positiveInteger(m.pullRequest);
   revision(m.targetBaseRevision); revision(m.baselineRevision); revision(m.headRevision);
@@ -105,5 +106,5 @@ export function validateArtifactBinding({ artifact, run, manifest, expected, now
 
 export function artifactName(manifest) {
   validateManifest(manifest);
-  return `pulse-report-${manifest.project.id}-${sha256(recipeKey(manifest.recipe)).slice(0, 16)}-${manifest.run.id}-${manifest.run.attempt}`;
+  return `pulse-report-${manifest.project.id}-${sha256(recipeKey(manifest.recipe)).slice(0, 16)}-${manifest.run.id}-${manifest.run.attempt}${manifest.comparisonAdapter ? '-comparison' : ''}`;
 }

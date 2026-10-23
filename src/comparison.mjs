@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { requireThat, sha256 } from './contracts.mjs';
 import { capture, normalizeInputs } from './capture.mjs';
-import { verifyBundle, sealBundle, regularBytes } from './evidence.mjs';
+import { verifyBundle, sealBundle, regularBytes, artifactName } from './evidence.mjs';
 import { verifyBaseline } from './baseline-evidence.mjs';
 
 export async function compareProject({ checkout, tooling, stage, output, task, inputs, rebuild = capture }) {
@@ -49,7 +49,7 @@ export async function compareProject({ checkout, tooling, stage, output, task, i
     const manifest = sealBundle(output, { ...head, baseline, baselineSource: result.baselineSource,
       comparisonAdapter: 'internal-beta10-validation-only', compatibility: result.compatibility ?? null }, files);
     writeFileSync(join(output, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
-    result.files = manifest.files; result.baseline = baseline; result.phase = 'complete';
+    result.artifactName = artifactName(manifest); result.files = manifest.files; result.baseline = baseline; result.phase = 'complete';
   } catch {
     result.status = 'failed'; delete result.files; delete result.baseline; result.failureCode = 'REPORT_ACTION_COMPARISON_FAILED';
     for (const name of ['head.json', 'head.html', 'base.json', 'base.html', 'compare.json', 'compare.html', 'compare-shim-receipt.json', 'manifest.json']) rmSync(join(output, name), { force: true });
