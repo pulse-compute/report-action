@@ -1,0 +1,17 @@
+name: RA-02 retained baseline validation
+on:
+  push:
+    branches: [validation/ra02-baseline]
+  pull_request:
+    branches: [validation/ra02-baseline]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  reports:
+    uses: pulse-compute/report-action/.github/workflows/reports.yml@3448c219165d63cf1f715eaff907d9bab7719d68
+    with:
+      profiles: '["ci"]'
+      install_directory: fixtures/consumer
+      baseline_branch: validation/ra02-baseline
+      compare_internal_beta10: true
