@@ -15,14 +15,14 @@ import { sha256 } from '../src/contracts.mjs';
 
 test('real installed pair rebuilds the exact baseline, then reuses push evidence without rebuilding; missing baselines stay explicit', async t => {
   const temp = mkdtempSync(join(tmpdir(), 'pulse-ra02-')); t.after(() => rmSync(temp, { recursive: true, force: true }));
-  const checkout = join(temp, 'consumer'), tooling = join(temp, 'tooling'); mkdirSync(tooling);
+  const checkout = join(temp, 'comparison-fixture'), tooling = join(temp, 'tooling'); mkdirSync(tooling);
   cpSync(fileURLToPath(new URL('../fixtures/consumer/', import.meta.url)), checkout, { recursive: true, filter: n => !['node_modules', 'dist', 'reports'].includes(basename(n)) });
   const git = (...args) => execute('git', args, { cwd: checkout }).trim();
   git('init', '-q', '-b', 'main'); git('config', 'user.name', 'Test'); git('config', 'user.email', 'test@example.invalid'); git('add', '-A'); git('commit', '-qm', 'baseline'); const base = git('rev-parse', 'HEAD');
   writeFileSync(join(checkout, 'src/index.ts'), readFileSync(join(checkout, 'src/index.ts'), 'utf8') + '\n// candidate\n');
   git('add', '-A'); git('commit', '-qm', 'head'); const head = git('rev-parse', 'HEAD');
   const discovery = discover({ cwd: checkout, base, head }), task = { ...discovery.projects[0], profile: 'ci' };
-  const metadata = { repository: 'fixture/consumer', pullRequest: 1, runId: 123, attempt: 1, event: 'pull_request', workflowPath: '.github/workflows/pulse.yml', workflowRevision: head, toolingRevision: 'a'.repeat(40) };
+  const metadata = { repository: 'fixture/comparison-fixture', pullRequest: 1, runId: 123, attempt: 1, event: 'pull_request', workflowPath: '.github/workflows/pulse.yml', workflowRevision: head, toolingRevision: 'a'.repeat(40) };
   const inputs = { profiles: ['ci'], compare_internal_beta10: true };
   const plan = { discovery, tasks: [task], metadata, inputsSha256: sha256(JSON.stringify(normalizeInputs(inputs))) };
   writeFileSync(join(tooling, 'plan.json'), JSON.stringify(plan));
@@ -50,6 +50,8 @@ test('real installed pair rebuilds the exact baseline, then reuses push evidence
   assert.equal(manifest.baseline.status, 'available'); assert.equal(manifest.headRevision, head); assert.equal(manifest.baselineRevision, base); assert.equal(manifest.files.length, 7);
   assert.deepEqual(readFileSync(join(output, 'head.json')), originalHead);
   assert.equal(JSON.parse(readFileSync(join(output, 'base.json'))).provenance.revision, null);
+  for (const side of ['head', 'base']) assert.equal(JSON.parse(readFileSync(join(output, `${side}.json`))).application.name, 'comparison-fixture');
+  assert.ok(readFileSync(join(output, 'compare.html'), 'utf8').includes(JSON.stringify('comparison-fixture')));
   assert.equal(JSON.parse(readFileSync(join(output, 'compare-shim-receipt.json'))).purpose, 'validation-only');
   assert.equal(git('rev-parse', 'HEAD'), base);
   // Actual approved-push capture, using the same locked baseline recipe.

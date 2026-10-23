@@ -65,7 +65,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          path: consumer
+          path: consumer/${{ github.event.repository.name }}
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
@@ -76,7 +76,7 @@ jobs:
         run: node "$REPORT_TOOLING/src/workflow.mjs" prepare
         env:
           REPORT_TOOLING: ${{ github.workspace }}/report-tooling
-          REPORT_CHECKOUT: ${{ github.workspace }}/consumer
+          REPORT_CHECKOUT: ${{ github.workspace }}/consumer/${{ github.event.repository.name }}
           REPORT_STAGE: ${{ runner.temp }}/pulse-report-tooling
           REPORT_INPUTS: ${{ toJSON(inputs) }}
           GH_TOKEN: ${{ github.token }}
@@ -108,7 +108,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          path: consumer
+          path: consumer/${{ github.event.repository.name }}
           persist-credentials: false
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
@@ -118,7 +118,7 @@ jobs:
         run: node "$REPORT_TOOLING/src/workflow.mjs" capture
         env:
           REPORT_TOOLING: ${{ github.workspace }}/report-tooling
-          REPORT_CHECKOUT: ${{ github.workspace }}/consumer
+          REPORT_CHECKOUT: ${{ github.workspace }}/consumer/${{ github.event.repository.name }}
           REPORT_TASK: ${{ toJSON(matrix) }}
           REPORT_INPUTS: ${{ toJSON(inputs) }}
           REPORT_BUNDLE: ${{ runner.temp }}/pulse-report-bundle
@@ -194,7 +194,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           ref: ${{ needs.discover.outputs.baseline_revision }}
-          path: consumer
+          path: consumer/${{ github.event.repository.name }}
           persist-credentials: false
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
@@ -204,7 +204,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPORT_TOOLING: ${{ github.workspace }}/report-tooling
-          REPORT_CHECKOUT: ${{ github.workspace }}/consumer
+          REPORT_CHECKOUT: ${{ github.workspace }}/consumer/${{ github.event.repository.name }}
           REPORT_STAGE: ${{ runner.temp }}/pulse-comparison-stage
           REPORT_HEAD_BINDING: ${{ github.workspace }}/head-binding
           REPORT_TASK: ${{ toJSON(matrix) }}
@@ -216,7 +216,7 @@ jobs:
         run: node "$REPORT_TOOLING/src/comparison.mjs"
         env:
           REPORT_TOOLING: ${{ github.workspace }}/report-tooling
-          REPORT_CHECKOUT: ${{ github.workspace }}/consumer
+          REPORT_CHECKOUT: ${{ github.workspace }}/consumer/${{ github.event.repository.name }}
           REPORT_STAGE: ${{ runner.temp }}/pulse-comparison-stage
           REPORT_BUNDLE: ${{ runner.temp }}/pulse-comparison-bundle
           REPORT_TASK: ${{ toJSON(matrix) }}
