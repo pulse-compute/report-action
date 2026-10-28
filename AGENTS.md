@@ -1,4 +1,32 @@
-# Report action maintainer instructions
+# Agent guide
+
+Use this guide when extending report-action. To install it in another repository,
+follow [README.md](README.md) and copy the templates in `examples/`.
+Setup and the code map are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Start here
+
+- Read the relevant workflow, source module, and corresponding `test/` file.
+- Run `npm test` with Node 24; core tests need no dependency installation.
+- For capture/comparison changes, install isolated validation dependencies and
+  run `npm run test:shim` and `npm run test:capture` as documented in
+  `CONTRIBUTING.md`. Installed-package tests need registry access.
+- Keep changes focused and prepare a reviewable PR with validation results.
+
+## Adding behavior
+
+- New capture input: update `.github/workflows/reports.yml`, `normalizeInputs`
+  in `src/capture.mjs`, and affected execution identity/baseline matching.
+- New policy expectation: update `src/publisher-source.mjs` and admission tests;
+  derive trusted expectations from policy and authenticated GitHub metadata.
+- New output or comment field: check `src/presentation.mjs`, `src/workflow.mjs`,
+  `src/publisher.mjs`, and artifact admission together. Keep the README sample
+  link block consistent with `renderComment`; do not commit generated reports.
+- Update `examples/` and `docs/configuration.md` for user-facing changes.
+- Keep docs focused on current setup and behavior. Put sprint progress and
+  one-off evidence history in issues/PRs, not the README or new history files.
+
+## Boundaries to preserve
 
 This repository owns GitHub orchestration, project discovery, evidence retention
 and PR presentation. Pulse owns report collection, comparison matching, capsule
